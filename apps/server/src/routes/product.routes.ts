@@ -1,17 +1,19 @@
-import { Router, Request, Response } from "express";
-import { products } from "../data/products.js";
+import { Router } from "express";
+import { Product } from "../models/product.model.js";
 
 const router = Router();
 
-const getProducts = (_req: Request, res: Response): void => {
-  res.status(200).json({
-    success: true,
-    data: products,
-  });
-};
+router.get("/products", async (_req, res, next) => {
+  try {
+    const products = await Product.find().select("-__v").lean();
 
-// Responds to GET / when mounted at /api/v1/products, or GET /products when mounted at /api/v1
-router.get("/", getProducts);
-router.get("/products", getProducts);
+    res.status(200).json({
+      success: true,
+      data: products,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
 
 export default router;

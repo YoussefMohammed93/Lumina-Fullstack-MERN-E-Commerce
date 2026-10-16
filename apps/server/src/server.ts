@@ -1,26 +1,26 @@
-import express from "express";
-import cors from "cors";
 import dotenv from "dotenv";
-import productRoutes from "./routes/product.routes.js";
-
 dotenv.config();
 
-const app = express();
+import { connectDB } from "./config/db.js";
+import app from "./app.js";
+
+import dns from "dns";
+
+dns.setServers(["1.1.1.1", "8.8.8.8"]);
+
 const PORT = Number(process.env.PORT) || 5000;
 
-app.use(cors());
-app.use(express.json());
+async function startServer() {
+  try {
+    await connectDB();
 
-app.get("/api/v1/health", (_req, res) => {
-  res.status(200).json({
-    success: true,
-    message: "MERN ECommerce API is running",
-    timestamp: new Date().toISOString(),
-  });
-});
+    app.listen(PORT, () => {
+      console.log(`Server running at http://localhost:${PORT}`);
+    });
+  } catch (error) {
+    console.error("Failed to start server:", error);
+    process.exit(1);
+  }
+}
 
-app.use("/api/v1/products", productRoutes);
-
-app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
-});
+void startServer();
