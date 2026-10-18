@@ -6,7 +6,7 @@ import { useCart } from "@/features/cart/CartProvider";
 import { cn } from "@/lib/utils";
 
 const LINKS = [
-  { label: "Shop", href: "#featured" },
+  { label: "Shop", href: "/shop" },
   { label: "Collections", href: "#collections" },
   { label: "Journal", href: "#journal" },
   { label: "About", href: "#about" },
@@ -87,7 +87,7 @@ export function Nav({
           className={cn(
             "mx-auto flex h-16 max-w-6xl items-center gap-3 rounded-full border px-2 pr-2 pl-5 transition-all duration-700 ease-luxe sm:gap-8 sm:pl-7",
             scrolled
-              ? "border-border/80 bg-background/80 shadow-[0_18px_40px_-30px_rgba(26,24,21,0.45)] backdrop-blur-xl"
+              ? "border-border/80 bg-background/80 shadow-[0_18px_40px_-30px_rgba(26,24,21,0.45)] backdrop-blur-sm"
               : "border-transparent bg-background/40",
           )}
         >

@@ -8,6 +8,7 @@ import {
 import { CartProvider } from "@/features/cart/CartProvider";
 import { ToastProvider } from "@/features/toast/ToastProvider";
 import { LandingPage } from "@/features/landing/LandingPage";
+import { ShopPage, ShopSkeleton } from "@/features/shop/ShopPage";
 import { AlertCircle, RefreshCw } from "lucide-react";
 
 interface StoreData {
@@ -66,6 +67,9 @@ export function App() {
   }
 
   if (!data) {
+    if (window.location.pathname === "/shop") {
+      return <ShopSkeleton />;
+    }
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
@@ -79,11 +83,15 @@ export function App() {
   return (
     <ToastProvider>
       <CartProvider products={data.products}>
-        <LandingPage
-          products={data.products}
-          collections={data.collections}
-          testimonials={data.testimonials}
-        />
+        {window.location.pathname === "/shop" ? (
+          <ShopPage products={data.products} />
+        ) : (
+          <LandingPage
+            products={data.products}
+            collections={data.collections}
+            testimonials={data.testimonials}
+          />
+        )}
       </CartProvider>
     </ToastProvider>
   );

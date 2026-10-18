@@ -109,6 +109,19 @@ export function ProductCard({
             </span>
           )}
         </div>
+        <div className="mt-2 flex items-center justify-between gap-2 md:hidden">
+          <span className="text-[11px] text-muted-foreground">
+            {product.stock > 0 ? `${product.stock} in stock` : "Sold out"}
+          </span>
+          <button
+            type="button"
+            onClick={handleAdd}
+            disabled={product.stock === 0}
+            className="rounded-full border border-border px-3 py-1.5 text-[11px] font-medium transition-colors hover:bg-muted disabled:opacity-50"
+          >
+            {added ? "Added" : "Add to bag"}
+          </button>
+        </div>
       </div>
     </article>
   );
