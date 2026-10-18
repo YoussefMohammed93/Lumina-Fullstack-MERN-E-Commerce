@@ -15,7 +15,7 @@ const LINKS = [
 function Wordmark() {
   return (
     <a
-      href="#top"
+      href="/"
       className="flex items-baseline gap-2 font-serif text-[22px] leading-none tracking-[0.18em] uppercase"
       aria-label="LUMINA home"
     >

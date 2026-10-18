@@ -1,11 +1,9 @@
 import { useRef } from "react";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import type { Product } from "@/types/product";
-import { SafeImage } from "@/components/motion/SafeImage";
 import { Reveal } from "@/components/motion/Reveal";
 import { SectionHeading } from "@/components/SectionHeading";
-import { StarRating } from "@/components/StarRating";
-import { formatPrice } from "@/services/api";
+import { ProductCard } from "./ProductCard";
 
 export function BestSellers({
   products,
@@ -70,31 +68,11 @@ export function BestSellers({
               delay={index * 60}
               className="w-[78vw] max-w-[320px] shrink-0 snap-start sm:w-[42vw] lg:w-[300px]"
             >
-              <button
-                type="button"
-                onClick={() => onQuickView(product)}
-                className="group block w-full text-left"
-              >
-                <div className="aspect-[3/4] overflow-hidden rounded-[1.5rem] bg-muted">
-                  <SafeImage
-                    src={product.images[0]}
-                    alt={product.name}
-                    className="transition-transform duration-[1200ms] ease-luxe group-hover:scale-[1.045]"
-                  />
-                </div>
-                <div className="mt-4 flex items-start justify-between gap-4">
-                  <div>
-                    <p className="eyebrow text-muted-foreground">{product.category}</p>
-                    <h3 className="mt-1.5 font-serif text-xl leading-tight">
-                      {product.name}
-                    </h3>
-                    <StarRating rating={product.rating} count={product.reviewCount} showCount className="mt-2" />
-                  </div>
-                  <span className="tabular pt-0.5 text-[13px] font-medium">
-                    {formatPrice(product.price)}
-                  </span>
-                </div>
-              </button>
+              <ProductCard
+                product={product}
+                productHref={`/products/${product.slug}`}
+                onQuickView={onQuickView}
+              />
             </Reveal>
           ))}
         </div>

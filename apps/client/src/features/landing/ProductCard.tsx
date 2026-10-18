@@ -11,10 +11,12 @@ import { cn } from "@/lib/utils";
 export function ProductCard({
   product,
   onQuickView,
+  productHref,
   className,
 }: {
   product: Product;
   onQuickView: (product: Product) => void;
+  productHref?: string;
   className?: string;
 }) {
   const { addItem, isWishlisted, toggleWishlist } = useCart();
@@ -37,9 +39,8 @@ export function ProductCard({
   return (
     <article className={cn("group/card flex flex-col", className)}>
       <div className="relative overflow-hidden rounded-[1.5rem] bg-muted">
-        <button
-          type="button"
-          onClick={() => onQuickView(product)}
+        {productHref ? <a
+          href={productHref}
           className="block aspect-[4/5] w-full overflow-hidden"
           aria-label={`View ${product.name}`}
         >
@@ -48,7 +49,7 @@ export function ProductCard({
             alt={product.name}
             className="transition-transform duration-[1200ms] ease-luxe group-hover/card:scale-[1.045]"
           />
-        </button>
+        </a> : <button type="button" onClick={() => onQuickView(product)} className="block aspect-[4/5] w-full overflow-hidden" aria-label={`View ${product.name}`}><SafeImage src={product.images[0]} alt={product.name} className="transition-transform duration-[1200ms] ease-luxe group-hover/card:scale-[1.045]" /></button>}
 
         {product.badge && (
           <span className="eyebrow absolute top-4 left-4 rounded-full bg-background/90 px-2.5 py-1.5 text-foreground backdrop-blur-sm">
@@ -91,28 +92,24 @@ export function ProductCard({
           <StarRating rating={product.rating} />
         </div>
         <h3 className="font-serif text-xl leading-snug tracking-tight">
-          <button
-            type="button"
-            onClick={() => onQuickView(product)}
-            className="text-left transition-colors duration-300 hover:text-clay"
-          >
-            {product.name}
-          </button>
+          {productHref ? <a href={productHref} className="text-left transition-colors duration-300 hover:text-clay">{product.name}</a> : <button type="button" onClick={() => onQuickView(product)} className="text-left transition-colors duration-300 hover:text-clay">{product.name}</button>}
         </h3>
-        <div className="mt-auto flex items-baseline gap-2 pt-1.5">
-          <span className="tabular text-[13px] font-medium">
-            {formatPrice(product.price)}
-          </span>
-          {product.compareAtPrice && (
-            <span className="tabular text-[12px] text-muted-foreground line-through">
-              {formatPrice(product.compareAtPrice)}
+        <div className="mt-auto flex items-baseline justify-between gap-2 pt-1.5">
+          <div className="flex items-baseline gap-2">
+            <span className="tabular text-[13px] font-medium">
+              {formatPrice(product.price)}
             </span>
-          )}
-        </div>
-        <div className="mt-2 flex items-center justify-between gap-2 md:hidden">
-          <span className="text-[11px] text-muted-foreground">
+            {product.compareAtPrice && (
+              <span className="tabular text-[12px] text-muted-foreground line-through">
+                {formatPrice(product.compareAtPrice)}
+              </span>
+            )}
+          </div>
+          <span className="shrink-0 text-[11px] text-muted-foreground">
             {product.stock > 0 ? `${product.stock} in stock` : "Sold out"}
           </span>
+        </div>
+        <div className="mt-2 flex justify-end md:hidden">
           <button
             type="button"
             onClick={handleAdd}

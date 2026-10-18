@@ -76,7 +76,11 @@ export function FeaturedEdit({
         >
           {visible.map((product, index) => (
             <Reveal key={product.id} delay={index * 60}>
-              <ProductCard product={product} onQuickView={onQuickView} />
+              <ProductCard
+                product={product}
+                productHref={`/products/${product.slug}`}
+                onQuickView={onQuickView}
+              />
             </Reveal>
           ))}
         </div>

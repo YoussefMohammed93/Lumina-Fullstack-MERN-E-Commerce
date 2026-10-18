@@ -208,6 +208,24 @@
     .scrollbar-none::-webkit-scrollbar {
         display: none;
     }
+
+    .lumina-loader {
+        display: grid;
+        width: 3rem;
+        height: 3rem;
+        place-items: center;
+        border: 1px solid color-mix(in srgb, var(--clay) 28%, transparent);
+        border-top-color: var(--clay);
+        border-radius: 9999px;
+        animation: lumina-spin 1s linear infinite;
+    }
+    .lumina-loader span {
+        width: 0.42rem;
+        height: 0.42rem;
+        border-radius: 9999px;
+        background: var(--clay);
+    }
+    @keyframes lumina-spin { to { transform: rotate(360deg); } }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -221,7 +239,8 @@
         transition: none;
     }
     .reveal-in,
-    .marquee-track {
+    .marquee-track,
+    .lumina-loader {
         animation: none;
     }
 }

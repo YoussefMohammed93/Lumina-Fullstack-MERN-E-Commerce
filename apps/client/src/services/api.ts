@@ -22,6 +22,11 @@ export async function fetchProducts(): Promise<Product[]> {
   return products;
 }
 
+/** Product detail seam. Swap this lookup for GET /api/v1/products/:slug later. */
+export function getProductBySlug(slug: string, source: Product[] = products): Product | undefined {
+  return source.find((product) => product.slug === slug);
+}
+
 /** Kept for the eventual real `GET /api/v1/products` response envelope. */
 export type { ProductsApiResponse };
 

@@ -9,6 +9,7 @@ import { CartProvider } from "@/features/cart/CartProvider";
 import { ToastProvider } from "@/features/toast/ToastProvider";
 import { LandingPage } from "@/features/landing/LandingPage";
 import { ShopPage, ShopSkeleton } from "@/features/shop/ShopPage";
+import { ProductDetailsPage, ProductDetailsSkeleton } from "@/features/products/ProductDetailsPage";
 import { AlertCircle, RefreshCw } from "lucide-react";
 
 interface StoreData {
@@ -70,9 +71,12 @@ export function App() {
     if (window.location.pathname === "/shop") {
       return <ShopSkeleton />;
     }
+    if (window.location.pathname.startsWith("/products/")) return <ProductDetailsSkeleton />;
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-4">
+      <div className="flex min-h-screen items-center justify-center overflow-hidden bg-background px-6">
+        <div aria-hidden="true" className="grain-texture pointer-events-none fixed inset-0 opacity-[0.035] mix-blend-multiply" />
+        <div className="relative flex flex-col items-center gap-5">
+          <div aria-hidden="true" className="lumina-loader"><span /></div>
           <span className="font-serif text-[22px] tracking-[0.18em] uppercase">Lumina</span>
           <span className="eyebrow text-muted-foreground">Preparing the collection</span>
         </div>
@@ -85,6 +89,8 @@ export function App() {
       <CartProvider products={data.products}>
         {window.location.pathname === "/shop" ? (
           <ShopPage products={data.products} />
+        ) : window.location.pathname.startsWith("/products/") ? (
+          <ProductDetailsPage products={data.products} slug={decodeURIComponent(window.location.pathname.split("/").filter(Boolean).at(-1) ?? "")} />
         ) : (
           <LandingPage
             products={data.products}
