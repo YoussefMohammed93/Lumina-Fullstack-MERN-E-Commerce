@@ -1,22 +1,45 @@
-import type { ProductsApiResponse, Product } from '../types/product';
+import type {
+  Collection,
+  ProductsApiResponse,
+  Product,
+  Testimonial,
+} from "../types/product";
+import { collections, products, testimonials } from "../data/products";
 
-const API_BASE_URL = 'http://localhost:5000/api/v1';
+/**
+ * Single seam between the UI and its data source.
+ *
+ * Today every function resolves from `src/data`. When the Express API lands,
+ * replace the body of each function with a fetch against
+ * `http://localhost:5000/api/v1/...` (or the Vite-proxied `/api/v1/...`)
+ * and keep the return types — no component needs to change.
+ */
+
+const delay = (ms = 260) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function fetchProducts(): Promise<Product[]> {
-  try {
-    const res = await fetch('/api/v1/products');
-    if (res.ok) {
-      const data: ProductsApiResponse = await res.json();
-      return data.data;
-    }
-  } catch {
-    // If proxy is not configured or in different host, fallback to direct API
-  }
+  await delay();
+  return products;
+}
 
-  const res = await fetch(`${API_BASE_URL}/products`);
-  if (!res.ok) {
-    throw new Error(`Failed to fetch products: ${res.status} ${res.statusText}`);
-  }
-  const data: ProductsApiResponse = await res.json();
-  return data.data;
+/** Kept for the eventual real `GET /api/v1/products` response envelope. */
+export type { ProductsApiResponse };
+
+export async function fetchCollections(): Promise<Collection[]> {
+  await delay(120);
+  return collections;
+}
+
+export async function fetchTestimonials(): Promise<Testimonial[]> {
+  await delay(120);
+  return testimonials;
+}
+
+export function formatPrice(value: number, currency = "USD"): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: value % 1 === 0 ? 0 : 2,
+  }).format(value);
 }
