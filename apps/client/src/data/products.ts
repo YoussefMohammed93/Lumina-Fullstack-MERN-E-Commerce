@@ -12,7 +12,10 @@ export const products: Product[] = [
       "A low, generous seat wrapped in undyed bouclé. The oak frame is joined by hand and left unsealed so it deepens with the years.",
     price: 1290,
     category: "Living",
-    images: [photo("photo-1616486338812-3dadae4b4ace"), photo("photo-1567538096630-e0c55bd6374c")],
+    images: [
+      photo("photo-1616486338812-3dadae4b4ace"),
+      photo("photo-1567538096630-e0c55bd6374c"),
+    ],
     stock: 8,
     rating: 4.8,
     reviewCount: 34,
@@ -28,7 +31,10 @@ export const products: Product[] = [
       "Wheel-thrown stoneware with a matte bone glaze. Holds eight cups and keeps its heat long after the last pour.",
     price: 148,
     category: "Dining",
-    images: [photo("photo-1495474472287-4d71bcdd2085"), photo("photo-1514228742587-6b1558fcca3d")],
+    images: [
+      photo("photo-1495474472287-4d71bcdd2085"),
+      photo("photo-1514228742587-6b1558fcca3d"),
+    ],
     stock: 42,
     rating: 4.6,
     reviewCount: 61,
@@ -44,7 +50,10 @@ export const products: Product[] = [
     price: 96,
     compareAtPrice: 120,
     category: "Dining",
-    images: [photo("photo-1600585154340-be6161a56a0c"), photo("photo-1600585154340-be6161a56a0c")],
+    images: [
+      photo("photo-1600585154340-be6161a56a0c"),
+      photo("photo-1600585154340-be6161a56a0c"),
+    ],
     stock: 61,
     rating: 4.4,
     reviewCount: 28,
@@ -60,7 +69,10 @@ export const products: Product[] = [
       "A paper-thin linen shade over a cherry base. The light it casts is warm, low, and free of glare.",
     price: 340,
     category: "Lighting",
-    images: [photo("photo-1507473885765-e6ed057f782c"), photo("photo-1543198126-a8339d5ae6b1")],
+    images: [
+      photo("photo-1507473885765-e6ed057f782c"),
+      photo("photo-1543198126-a8339d5ae6b1"),
+    ],
     stock: 17,
     rating: 4.9,
     reviewCount: 73,
@@ -76,7 +88,10 @@ export const products: Product[] = [
       "Each carafe is blown in a small Portuguese workshop, so no two glass volumes are quite alike. Sealed with a cork stopper.",
     price: 78,
     category: "Dining",
-    images: [photo("photo-1513558161293-cdaf765ed2fd"), photo("photo-1517248135467-4c7edcad34c4")],
+    images: [
+      photo("photo-1513558161293-cdaf765ed2fd"),
+      photo("photo-1517248135467-4c7edcad34c4"),
+    ],
     stock: 120,
     rating: 4.5,
     reviewCount: 45,
@@ -91,7 +106,10 @@ export const products: Product[] = [
       "A single plank of white oak, eased at every edge and finished with hardwax oil. Concealed steel pins disappear into the wall.",
     price: 265,
     category: "Living",
-    images: [photo("photo-1493663284031-b7e3aefcae8e"), photo("photo-1524758631624-e2822e304c36")],
+    images: [
+      photo("photo-1493663284031-b7e3aefcae8e"),
+      photo("photo-1524758631624-e2822e304c36"),
+    ],
     stock: 24,
     rating: 4.7,
     reviewCount: 19,
@@ -107,7 +125,10 @@ export const products: Product[] = [
     price: 410,
     compareAtPrice: 480,
     category: "Lighting",
-    images: [photo("photo-1513506003901-1e6a229e2d15"), photo("photo-1524484485831-a92ffc0de03f")],
+    images: [
+      photo("photo-1513506003901-1e6a229e2d15"),
+      photo("photo-1524484485831-a92ffc0de03f"),
+    ],
     stock: 12,
     rating: 4.6,
     reviewCount: 22,
@@ -123,7 +144,10 @@ export const products: Product[] = [
       "Carved from a single block of limestone. The ribs catch the afternoon light; the interior is sealed for stems.",
     price: 190,
     category: "Objects",
-    images: [photo("photo-1578500494198-246f612d3b3d"), photo("photo-1581783898377-1c85bf937427")],
+    images: [
+      photo("photo-1578500494198-246f612d3b3d"),
+      photo("photo-1581783898377-1c85bf937427"),
+    ],
     stock: 30,
     rating: 4.3,
     reviewCount: 16,
@@ -138,7 +162,10 @@ export const products: Product[] = [
       "Loomed in the Scottish borders from undyed lambswool. Light enough for a summer evening, warm enough for winter.",
     price: 220,
     category: "Living",
-    images: [photo("photo-1584100936595-c0654b55a2e2"), photo("photo-1522708323590-d24dbb6b0267")],
+    images: [
+      photo("photo-1584100936595-c0654b55a2e2"),
+      photo("photo-1522708323590-d24dbb6b0267"),
+    ],
     stock: 36,
     rating: 4.8,
     reviewCount: 52,
@@ -153,7 +180,10 @@ export const products: Product[] = [
       "A pair of turned brass holders that patina rather than polish. Weighted at the base so they never wander.",
     price: 135,
     category: "Objects",
-    images: [photo("photo-1603006905003-be475563bc59"), photo("photo-1540932239986-30128078f3c5")],
+    images: [
+      photo("photo-1603006905003-be475563bc59"),
+      photo("photo-1540932239986-30128078f3c5"),
+    ],
     stock: 48,
     rating: 4.5,
     reviewCount: 31,
@@ -169,7 +199,10 @@ export const products: Product[] = [
       "A slim ash frame with a hand-woven cane back. Sold individually; they push in neatly beneath most tables.",
     price: 380,
     category: "Dining",
-    images: [photo("photo-1503602642458-232111445657"), photo("photo-1505693416388-ac5ce068fe85")],
+    images: [
+      photo("photo-1503602642458-232111445657"),
+      photo("photo-1505693416388-ac5ce068fe85"),
+    ],
     stock: 40,
     rating: 4.7,
     reviewCount: 87,
@@ -184,7 +217,10 @@ export const products: Product[] = [
       "A slab of translucent alabaster mounted on a blackened steel arm. It glows rather than shines.",
     price: 520,
     category: "Lighting",
-    images: [photo("photo-1524634126442-357e0eac3c14"), photo("photo-1558618666-fcd25c85cd64")],
+    images: [
+      photo("photo-1524634126442-357e0eac3c14"),
+      photo("photo-1558618666-fcd25c85cd64"),
+    ],
     stock: 6,
     rating: 4.9,
     reviewCount: 12,
@@ -193,6 +229,19 @@ export const products: Product[] = [
     dimensions: "24 × 12 × 18 cm",
   },
 ];
+
+// This will become an admin-managed field in the product collection.
+const cashOnDeliveryUnavailable = new Set([
+  "prod-clay-01",
+  "prod-clay-04",
+  "prod-clay-07",
+  "prod-clay-11",
+  "prod-clay-12",
+]);
+
+products.forEach((product) => {
+  product.cashOnDeliveryAvailable = !cashOnDeliveryUnavailable.has(product.id);
+});
 
 export const collections: Collection[] = [
   {
@@ -290,4 +339,10 @@ export const testimonials: Testimonial[] = [
   },
 ];
 
-export const categories = ["All", "Living", "Dining", "Lighting", "Objects"] as const;
+export const categories = [
+  "All",
+  "Living",
+  "Dining",
+  "Lighting",
+  "Objects",
+] as const;

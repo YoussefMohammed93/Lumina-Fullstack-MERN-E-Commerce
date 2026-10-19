@@ -10,6 +10,22 @@ import { Drawer } from "@/components/Drawer";
 import { AuthContext, type AuthUser } from "./auth-context";
 import { apiRequest, authenticatedRequest } from "./auth-client";
 import { GoogleSignInButton } from "./GoogleSignInButton";
+import { z } from "zod";
+
+const registrationSchema = z.object({
+  username: z
+    .string()
+    .trim()
+    .regex(
+      /^[A-Za-z0-9_]{3,30}$/,
+      "Use 3–30 letters, numbers, or underscores.",
+    ),
+  email: z.string().trim().email("Enter a valid email address."),
+  password: z
+    .string()
+    .min(6, "Password must be at least 6 characters.")
+    .max(128),
+});
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -78,11 +94,31 @@ function AuthDrawer({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<
+    Partial<Record<"username" | "email" | "password", string>>
+  >({});
   const [submitting, setSubmitting] = useState(false);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setError(null);
+    if (mode === "register") {
+      const validation = registrationSchema.safeParse({
+        username,
+        email,
+        password,
+      });
+      if (!validation.success) {
+        const errors = z.flattenError(validation.error).fieldErrors;
+        setFieldErrors({
+          username: errors.username?.[0],
+          email: errors.email?.[0],
+          password: errors.password?.[0],
+        });
+        return;
+      }
+    }
+    setFieldErrors({});
     setSubmitting(true);
     try {
       const result = await apiRequest<{ user: AuthUser; csrfToken: string }>(
@@ -137,9 +173,15 @@ function AuthDrawer({
               pattern="[A-Za-z0-9_]+"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="mt-2 h-11 w-full rounded-xl border border-input bg-card px-3 text-sm"
+              aria-invalid={Boolean(fieldErrors.username)}
+              className="mt-2 h-11 w-full rounded-xl border border-input bg-card px-3 text-sm aria-invalid:border-destructive"
               autoComplete="username"
             />
+            {fieldErrors.username && (
+              <span className="mt-1 block text-xs font-normal text-destructive">
+                {fieldErrors.username}
+              </span>
+            )}
           </label>
         )}
         <label className="block text-sm font-medium">
@@ -149,27 +191,39 @@ function AuthDrawer({
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="mt-2 h-11 w-full rounded-xl border border-input bg-card px-3 text-sm"
+            aria-invalid={Boolean(fieldErrors.email)}
+            className="mt-2 h-11 w-full rounded-xl border border-input bg-card px-3 text-sm aria-invalid:border-destructive"
             autoComplete="email"
           />
+          {fieldErrors.email && (
+            <span className="mt-1 block text-xs font-normal text-destructive">
+              {fieldErrors.email}
+            </span>
+          )}
         </label>
         <label className="block text-sm font-medium">
           Password
           <input
             required
             type="password"
-            minLength={12}
+            minLength={6}
             maxLength={128}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="mt-2 h-11 w-full rounded-xl border border-input bg-card px-3 text-sm"
+            aria-invalid={Boolean(fieldErrors.password)}
+            className="mt-2 h-11 w-full rounded-xl border border-input bg-card px-3 text-sm aria-invalid:border-destructive"
             autoComplete={
               mode === "login" ? "current-password" : "new-password"
             }
           />
           <span className="mt-2 block text-xs font-normal text-muted-foreground">
-            At least 12 characters.
+            At least 6 characters.
           </span>
+          {fieldErrors.password && (
+            <span className="mt-1 block text-xs font-normal text-destructive">
+              {fieldErrors.password}
+            </span>
+          )}
         </label>
         {error && (
           <p
@@ -195,6 +249,7 @@ function AuthDrawer({
           onClick={() => {
             setMode(mode === "login" ? "register" : "login");
             setError(null);
+            setFieldErrors({});
           }}
           className="w-full text-sm text-muted-foreground underline underline-offset-4"
         >

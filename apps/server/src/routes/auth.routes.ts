@@ -87,7 +87,7 @@ router.post("/register", authRateLimit, async (req, res, next) => {
     if (
       !/^[a-z0-9_]{3,30}$/.test(username) ||
       !/^\S+@\S+\.\S+$/.test(email) ||
-      password.length < 12 ||
+      password.length < 6 ||
       password.length > 128
     )
       return res.status(400).json({

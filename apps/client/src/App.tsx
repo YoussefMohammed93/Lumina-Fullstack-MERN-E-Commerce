@@ -17,6 +17,11 @@ import {
 import { AlertCircle, RefreshCw } from "lucide-react";
 import { AdminDashboard } from "@/features/admin/AdminDashboard";
 import { SettingsPage } from "@/features/auth/SettingsPage";
+import {
+  CheckoutPage,
+  OrderConfirmation,
+  StripeCheckoutSuccessPage,
+} from "@/features/checkout/CheckoutPage";
 
 interface StoreData {
   products: Product[];
@@ -112,6 +117,15 @@ export function App() {
             <AdminDashboard />
           ) : window.location.pathname === "/settings" ? (
             <SettingsPage />
+          ) : window.location.pathname === "/checkout" ? (
+            <CheckoutPage products={data.products} />
+          ) : window.location.pathname === "/checkout/success" ? (
+            <StripeCheckoutSuccessPage />
+          ) : window.location.pathname === "/checkout/cancel" ? (
+            <OrderConfirmation
+              title="Checkout cancelled"
+              message="Your bag is still saved, so you can return whenever you are ready."
+            />
           ) : window.location.pathname === "/shop" ? (
             <ShopPage products={data.products} />
           ) : window.location.pathname.startsWith("/products/") ? (

@@ -130,13 +130,21 @@ export function CartProvider({
     [openAuth, user],
   );
 
-  const clearCart = useCallback(() => {
+  const clearCart = useCallback(async () => {
     if (!user) {
       openAuth();
       return;
     }
     setState((current) => ({ ...current, lines: [] }));
-  }, [openAuth, user]);
+    // Persist immediately, rather than relying solely on the sync effect. This
+    // also prevents a pre-webhook cart fetch from restoring paid-for items.
+    if (csrfToken) {
+      await authenticatedRequest("/cart", csrfToken, {
+        method: "PUT",
+        body: JSON.stringify({ items: [] }),
+      });
+    }
+  }, [csrfToken, openAuth, user]);
 
   const toggleWishlist = useCallback(
     (productId: string) => {
@@ -161,9 +169,8 @@ export function CartProvider({
   );
 
   // Never expose a previous account's state while signed out or switching users.
-  const visibleState = user && hydratedUserId === user.id
-    ? state
-    : { lines: [], wishlist: [] };
+  const visibleState =
+    user && hydratedUserId === user.id ? state : { lines: [], wishlist: [] };
 
   const { subtotal, totalQuantity } = useMemo(() => {
     let sum = 0;

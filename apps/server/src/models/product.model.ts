@@ -9,6 +9,7 @@ export interface IProduct {
   image: string;
   stock: number;
   rating: number;
+  cashOnDeliveryAvailable: boolean;
 }
 
 const productSchema = new Schema<IProduct>(
@@ -54,6 +55,7 @@ const productSchema = new Schema<IProduct>(
       max: 5,
       default: 0,
     },
+    cashOnDeliveryAvailable: { type: Boolean, default: true },
   },
   {
     timestamps: true,

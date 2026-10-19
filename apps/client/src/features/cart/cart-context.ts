@@ -9,7 +9,7 @@ export interface CartContextValue {
   addItem: (product: Product, quantity?: number) => boolean;
   removeItem: (productId: string) => void;
   setQuantity: (productId: string, quantity: number) => void;
-  clearCart: () => void;
+  clearCart: () => Promise<void>;
   wishlist: Set<string>;
   isWishlisted: (productId: string) => boolean;
   toggleWishlist: (productId: string) => boolean;

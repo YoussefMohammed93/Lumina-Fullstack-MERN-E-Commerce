@@ -8,4 +8,5 @@ export interface Product {
   image: string;
   stock: number;
   rating: number;
+  cashOnDeliveryAvailable: boolean;
 }

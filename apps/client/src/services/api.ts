@@ -23,7 +23,10 @@ export async function fetchProducts(): Promise<Product[]> {
 }
 
 /** Product detail seam. Swap this lookup for GET /api/v1/products/:slug later. */
-export function getProductBySlug(slug: string, source: Product[] = products): Product | undefined {
+export function getProductBySlug(
+  slug: string,
+  source: Product[] = products,
+): Product | undefined {
   return source.find((product) => product.slug === slug);
 }
 
@@ -40,8 +43,8 @@ export async function fetchTestimonials(): Promise<Testimonial[]> {
   return testimonials;
 }
 
-export function formatPrice(value: number, currency = "USD"): string {
-  return new Intl.NumberFormat("en-US", {
+export function formatPrice(value: number, currency = "EGP"): string {
+  return new Intl.NumberFormat("en-EG", {
     style: "currency",
     currency,
     minimumFractionDigits: 0,

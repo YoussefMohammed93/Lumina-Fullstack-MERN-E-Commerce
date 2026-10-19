@@ -41,7 +41,7 @@ export function CartDrawer({
               Shipping and taxes are calculated at checkout. Complimentary
               shipping over {formatPrice(FREE_SHIPPING_THRESHOLD)}.
             </p>
-            <ArrowButton className="w-full justify-between" disabled>
+            <ArrowButton href="/checkout" className="w-full justify-between">
               Proceed to checkout
             </ArrowButton>
             <p className="text-center text-[10px] text-muted-foreground/80">

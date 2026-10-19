@@ -6,7 +6,7 @@ export interface Product {
   name: string;
   slug: string;
   description: string;
-  /** Price in major units (USD), formatted at the edge. */
+  /** Price in major EGP units, formatted at the edge. */
   price: number;
   compareAtPrice?: number;
   category: string;
@@ -17,6 +17,8 @@ export interface Product {
   badge?: ProductBadge;
   materials: string;
   dimensions?: string;
+  /** Defaults to enabled while mock catalogues are being migrated. */
+  cashOnDeliveryAvailable?: boolean;
 }
 
 export interface Collection {
