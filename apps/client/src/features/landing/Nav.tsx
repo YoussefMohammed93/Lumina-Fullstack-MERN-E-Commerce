@@ -27,9 +27,9 @@ import {
 
 const LINKS = [
   { label: "Shop", href: "/shop" },
-  { label: "Collections", href: "#collections" },
-  { label: "Journal", href: "#journal" },
-  { label: "About", href: "#about" },
+  { label: "Collections", href: "/#collections" },
+  { label: "Journal", href: "/journal" },
+  { label: "About", href: "/about" },
 ];
 
 function Wordmark() {

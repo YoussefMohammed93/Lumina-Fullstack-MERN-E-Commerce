@@ -49,13 +49,19 @@ interface ShopQuery {
   page: number;
 }
 
+function normalizeCategory(value: string) {
+  // Supports legacy collection URLs such as "01 · Living" as well as
+  // the plain catalog categories used by the filter controls.
+  return value.replace(/^\d+\s*[^A-Za-z]*\s*/, "").trim();
+}
+
 function readQuery(): ShopQuery {
   const params = new URLSearchParams(window.location.search);
   const sort = params.get("sort") as Sort;
 
   return {
     search: params.get("search") ?? "",
-    categories: params.getAll("category"),
+    categories: params.getAll("category").map(normalizeCategory).filter(Boolean),
     minPrice: params.get("minPrice") ?? "",
     maxPrice: params.get("maxPrice") ?? "",
     rating: Number(params.get("rating")) || 0,

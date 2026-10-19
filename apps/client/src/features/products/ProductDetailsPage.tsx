@@ -199,16 +199,59 @@ export function ProductDetailsPage({
 
 function ProductGallery({ product }: { product: Product }) {
   const [active, setActive] = useState(0);
+  const [isZooming, setIsZooming] = useState(false);
+  const [zoomPosition, setZoomPosition] = useState({ x: 50, y: 50 });
   const images = product.images.length ? product.images : [""];
+  const activeImage = images[active] ?? images[0];
+
+  const updateZoomPosition = (event: React.PointerEvent<HTMLDivElement>) => {
+    // A percentage keeps the magnifier aligned with the image at every size.
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const x = ((event.clientX - bounds.left) / bounds.width) * 100;
+    const y = ((event.clientY - bounds.top) / bounds.height) * 100;
+    setZoomPosition({
+      x: Math.min(100, Math.max(0, x)),
+      y: Math.min(100, Math.max(0, y)),
+    });
+  };
 
   return (
     <div className="flex flex-col gap-3 sm:flex-row-reverse sm:items-start">
-      <div className="aspect-square flex-1 overflow-hidden rounded-[1.75rem] bg-muted">
+      <div
+        className="group relative aspect-square flex-1 overflow-hidden rounded-[1.75rem] bg-muted"
+        onPointerEnter={(event) => {
+          if (event.pointerType === "mouse") setIsZooming(true);
+        }}
+        onPointerMove={(event) => {
+          if (event.pointerType === "mouse") updateZoomPosition(event);
+        }}
+        onPointerLeave={() => setIsZooming(false)}
+      >
         <SafeImage
           eager
-          src={images[active] ?? images[0]}
+          src={activeImage}
           alt={`${product.name}, image ${active + 1}`}
+          className="transition-transform duration-200 group-hover:scale-[1.02]"
         />
+        {isZooming && activeImage && (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute size-44 rounded-full border-2 border-background/90 shadow-xl sm:size-52"
+            style={{
+              left: `${zoomPosition.x}%`,
+              top: `${zoomPosition.y}%`,
+              transform: "translate(-50%, -50%)",
+              backgroundImage: `url("${activeImage}")`,
+              backgroundPosition: `${zoomPosition.x}% ${zoomPosition.y}%`,
+              // A pronounced magnification makes this read as a close-up,
+              // rather than a second crop of the product image.
+              backgroundSize: "600%",
+            }}
+          />
+        )}
+        <span className="pointer-events-none absolute bottom-4 left-1/2 hidden -translate-x-1/2 rounded-full bg-foreground/75 px-3 py-1.5 text-xs text-background opacity-0 transition-opacity group-hover:opacity-100 sm:block">
+          Hover to zoom
+        </span>
       </div>
       {images.length > 1 && (
         <div className="flex gap-2 overflow-x-auto sm:w-20 sm:flex-col">
@@ -216,7 +259,10 @@ function ProductGallery({ product }: { product: Product }) {
             <button
               key={`${image}-${index}`}
               type="button"
-              onClick={() => setActive(index)}
+              onClick={() => {
+                setActive(index);
+                setIsZooming(false);
+              }}
               aria-label={`Show image ${index + 1} of ${product.name}`}
               aria-current={active === index}
               className={cn(
@@ -475,15 +521,19 @@ function ReviewForm({ productId }: { productId: string }) {
                 : "Sign in to share your perspective."}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={openAuth}
-            className="shrink-0 text-sm underline underline-offset-4"
-          >
-            {user
-              ? `Signed in as ${user.username}`
-              : "Sign in to leave a review"}
-          </button>
+          {user ? (
+            <span className="shrink-0 text-sm text-muted-foreground">
+              Signed in as {user.name ?? user.username}
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={openAuth}
+              className="shrink-0 text-sm underline underline-offset-4"
+            >
+              Sign in to leave a review
+            </button>
+          )}
         </div>
         <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(220px,.35fr)_minmax(0,1fr)]">
           <fieldset>

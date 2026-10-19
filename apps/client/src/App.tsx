@@ -10,6 +10,8 @@ import { ToastProvider } from "@/features/toast/ToastProvider";
 import { AuthProvider } from "@/features/auth/AuthProvider";
 import { LandingPage } from "@/features/landing/LandingPage";
 import { ShopPage, ShopSkeleton } from "@/features/shop/ShopPage";
+import { JournalPage } from "@/features/journal/JournalPage";
+import { AboutPage } from "@/features/about/AboutPage";
 import {
   ProductDetailsPage,
   ProductDetailsSkeleton,
@@ -128,6 +130,14 @@ export function App() {
             />
           ) : window.location.pathname === "/shop" ? (
             <ShopPage products={data.products} />
+          ) : window.location.pathname === "/about" ? (
+            <AboutPage products={data.products} />
+          ) : window.location.pathname === "/journal" ||
+            window.location.pathname.startsWith("/journal/") ? (
+            <JournalPage
+              products={data.products}
+              slug={window.location.pathname.startsWith("/journal/") ? window.location.pathname.split("/").filter(Boolean).at(-1) : undefined}
+            />
           ) : window.location.pathname.startsWith("/products/") ? (
             <ProductDetailsPage
               products={data.products}

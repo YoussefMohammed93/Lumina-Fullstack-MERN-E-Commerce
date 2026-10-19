@@ -17,6 +17,13 @@ const ROW_CFG: { indices: number[]; lg: string }[] = [
 const indexToLg = new Map<number, string>();
 ROW_CFG.forEach((r) => r.indices.forEach((i) => indexToLg.set(i, r.lg)));
 
+function collectionHref(collection: Collection) {
+  // Convert labels such as "02 · Dining" to the actual shop category,
+  // "Dining", instead of passing the display number to the filter.
+  const category = collection.eyebrow.replace(/^\d+\s*[^A-Za-z]*\s*/, "");
+  return `/shop?category=${encodeURIComponent(category)}`;
+}
+
 /* Row heights: top & bottom rows taller, middle row slightly shorter */
 const ROW_H: Record<number, string> = {
   0: "h-[420px]",
@@ -72,7 +79,7 @@ export function CategoryBento({ collections }: { collections: Collection[] }) {
               className={`sm:col-span-1 ${indexToLg.get(index)}`}
             >
               <a
-                href={collection.href}
+                href={collectionHref(collection)}
                 className={`group relative block overflow-hidden rounded-[20px] ${ROW_H[index]}`}
               >
                 {/* ── Full-bleed image ── */}
