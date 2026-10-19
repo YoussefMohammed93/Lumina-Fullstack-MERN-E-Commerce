@@ -19,6 +19,7 @@ import {
 import { AlertCircle, RefreshCw } from "lucide-react";
 import { AdminDashboard } from "@/features/admin/AdminDashboard";
 import { SettingsPage } from "@/features/auth/SettingsPage";
+import { InfoPage } from "@/features/info/InfoPage";
 import {
   CheckoutPage,
   OrderConfirmation,
@@ -132,6 +133,16 @@ export function App() {
             <ShopPage products={data.products} />
           ) : window.location.pathname === "/about" ? (
             <AboutPage products={data.products} />
+          ) : window.location.pathname === "/shipping-returns" ? (
+            <InfoPage page="shipping" products={data.products} />
+          ) : window.location.pathname === "/care-guide" ? (
+            <InfoPage page="care" products={data.products} />
+          ) : window.location.pathname === "/faq" ? (
+            <InfoPage page="faq" products={data.products} />
+          ) : window.location.pathname === "/privacy" ? (
+            <InfoPage page="privacy" products={data.products} />
+          ) : window.location.pathname === "/terms" ? (
+            <InfoPage page="terms" products={data.products} />
           ) : window.location.pathname === "/journal" ||
             window.location.pathname.startsWith("/journal/") ? (
             <JournalPage

@@ -1,17 +1,33 @@
-import { Mail, MapPin } from "lucide-react";
+import { Clock, Mail, MapPin } from "lucide-react";
 
 const COLUMNS = [
   {
     title: "Shop",
-    links: ["Living", "Dining", "Lighting", "Objects", "Gift cards"],
+    links: [
+      { label: "Living", href: "/shop?category=Living" },
+      { label: "Dining", href: "/shop?category=Dining" },
+      { label: "Lighting", href: "/shop?category=Lighting" },
+      { label: "Objects", href: "/shop?category=Objects" },
+      { label: "Gift cards", href: "/shop" },
+    ],
   },
   {
     title: "Studio",
-    links: ["About us", "Our makers", "Journal", "Sustainability"],
+    links: [
+      { label: "About us", href: "/about" },
+      { label: "Our makers", href: "/about" },
+      { label: "Journal", href: "/journal" },
+      { label: "Sustainability", href: "/about" },
+    ],
   },
   {
     title: "Care",
-    links: ["Shipping & returns", "Care guide", "Contact", "FAQ"],
+    links: [
+      { label: "Shipping & returns", href: "/shipping-returns" },
+      { label: "Care guide", href: "/care-guide" },
+      { label: "Contact", href: "/#newsletter" },
+      { label: "FAQ", href: "/faq" },
+    ],
   },
 ];
 
@@ -21,18 +37,22 @@ export function Footer() {
       <div className="mx-auto max-w-6xl space-y-14">
         <div className="grid gap-12 lg:grid-cols-[1.4fr_2fr]">
           <div className="space-y-6">
-            <p className="font-serif text-[26px] leading-none tracking-[0.18em] uppercase">
+            <a
+              href="/"
+              aria-label="Lumina home"
+              className="block w-fit rounded-sm font-serif text-[26px] leading-none tracking-[0.18em] uppercase focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay"
+            >
               Lumina
-            </p>
+            </a>
             <p className="max-w-xs text-[13px] leading-6 text-muted-foreground">
               Objects for considered living, made in small batches by workshops
               we know by name.
             </p>
-            <div className="flex items-center gap-4 text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-4 text-muted-foreground">
               <a
-                href="#top"
+                href="www.instagram.com"
                 aria-label="Instagram"
-                className="transition-colors duration-300 hover:text-foreground"
+                className="rounded-sm transition-colors duration-300 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -50,15 +70,18 @@ export function Footer() {
                 </svg>
               </a>
               <a
-                href="#newsletter"
-                aria-label="Newsletter"
-                className="transition-colors duration-300 hover:text-foreground"
+                href="mailto:lumina@gmail.com"
+                className="flex items-center gap-1.5 rounded-sm transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay"
               >
-                <Mail className="size-4" strokeWidth={1.25} />
+                <Mail className="size-4" strokeWidth={1.25} />{" "}
               </a>
               <span className="flex items-center gap-1.5 text-[11px]">
                 <MapPin className="size-3.5" strokeWidth={1.25} />
-                Copenhagen · Lisbon
+                Mansoura, Egypt
+              </span>
+              <span className="flex items-center gap-1.5 text-[11px]">
+                <Clock className="size-3.5" strokeWidth={1.25} />
+                Daily, 8 am–2 pm
               </span>
             </div>
           </div>
@@ -72,12 +95,12 @@ export function Footer() {
                 <p className="eyebrow text-muted-foreground">{column.title}</p>
                 <ul className="space-y-2.5">
                   {column.links.map((link) => (
-                    <li key={link}>
+                    <li key={link.label}>
                       <a
-                        href="#featured"
-                        className="text-[13px] text-foreground/70 transition-colors duration-300 hover:text-foreground"
+                        href={link.href}
+                        className="rounded-sm text-[13px] text-foreground/70 transition-colors duration-300 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay"
                       >
-                        {link}
+                        {link.label}
                       </a>
                     </li>
                   ))}
@@ -92,10 +115,16 @@ export function Footer() {
             © {new Date().getFullYear()} Lumina Studio. All rights reserved.
           </p>
           <div className="flex flex-wrap items-center gap-5">
-            <a href="#top" className="transition-colors hover:text-foreground">
+            <a
+              href="/privacy"
+              className="rounded-sm transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay"
+            >
               Privacy
             </a>
-            <a href="#top" className="transition-colors hover:text-foreground">
+            <a
+              href="/terms"
+              className="rounded-sm transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay"
+            >
               Terms
             </a>
           </div>
