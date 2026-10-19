@@ -4,28 +4,25 @@ import type { Product } from "@/types/product";
 import { formatPrice } from "@/services/api";
 import { SafeImage } from "@/components/motion/SafeImage";
 import { StarRating } from "@/components/StarRating";
-import { useCart } from "@/features/cart/CartProvider";
+import { useCart } from "@/features/cart/useCart";
 import { useToast } from "@/features/toast/ToastProvider";
 import { cn } from "@/lib/utils";
 
 export function ProductCard({
   product,
-  onQuickView,
-  productHref,
   className,
 }: {
   product: Product;
-  onQuickView: (product: Product) => void;
-  productHref?: string;
   className?: string;
 }) {
   const { addItem, isWishlisted, toggleWishlist } = useCart();
   const { toast } = useToast();
   const [added, setAdded] = useState(false);
   const wished = isWishlisted(product.id);
+  const productHref = `/products/${product.slug}`;
 
   const handleAdd = () => {
-    addItem(product);
+    if (!addItem(product)) return;
     toast("Added to your bag", product.name);
     setAdded(true);
     window.setTimeout(() => setAdded(false), 1400);
@@ -33,13 +30,17 @@ export function ProductCard({
 
   const handleWishlist = () => {
     const nowSaved = toggleWishlist(product.id);
-    toast(nowSaved ? "Saved to your list" : "Removed from your list", product.name);
+    if (!nowSaved && !isWishlisted(product.id)) return;
+    toast(
+      nowSaved ? "Saved to your list" : "Removed from your list",
+      product.name,
+    );
   };
 
   return (
     <article className={cn("group/card flex flex-col", className)}>
       <div className="relative overflow-hidden rounded-[1.5rem] bg-muted">
-        {productHref ? <a
+        <a
           href={productHref}
           className="block aspect-[4/5] w-full overflow-hidden"
           aria-label={`View ${product.name}`}
@@ -49,18 +50,26 @@ export function ProductCard({
             alt={product.name}
             className="transition-transform duration-[1200ms] ease-luxe group-hover/card:scale-[1.045]"
           />
-        </a> : <button type="button" onClick={() => onQuickView(product)} className="block aspect-[4/5] w-full overflow-hidden" aria-label={`View ${product.name}`}><SafeImage src={product.images[0]} alt={product.name} className="transition-transform duration-[1200ms] ease-luxe group-hover/card:scale-[1.045]" /></button>}
+        </a>
 
         {product.badge && (
           <span className="eyebrow absolute top-4 left-4 rounded-full bg-background/90 px-2.5 py-1.5 text-foreground backdrop-blur-sm">
-            {product.badge === "new" ? "New" : product.badge === "limited" ? "Last pieces" : "Reduced"}
+            {product.badge === "new"
+              ? "New"
+              : product.badge === "limited"
+                ? "Last pieces"
+                : "Reduced"}
           </span>
         )}
 
         <button
           type="button"
           onClick={handleWishlist}
-          aria-label={wished ? `Remove ${product.name} from list` : `Save ${product.name} to list`}
+          aria-label={
+            wished
+              ? `Remove ${product.name} from list`
+              : `Save ${product.name} to list`
+          }
           aria-pressed={wished}
           className="absolute top-3 right-3 flex size-9 items-center justify-center rounded-full bg-background/80 text-foreground/70 backdrop-blur-sm transition-all duration-500 ease-luxe hover:bg-background hover:text-foreground"
         >
@@ -92,7 +101,12 @@ export function ProductCard({
           <StarRating rating={product.rating} />
         </div>
         <h3 className="font-serif text-xl leading-snug tracking-tight">
-          {productHref ? <a href={productHref} className="text-left transition-colors duration-300 hover:text-clay">{product.name}</a> : <button type="button" onClick={() => onQuickView(product)} className="text-left transition-colors duration-300 hover:text-clay">{product.name}</button>}
+          <a
+            href={productHref}
+            className="text-left transition-colors duration-300 hover:text-clay"
+          >
+            {product.name}
+          </a>
         </h3>
         <div className="mt-auto flex items-baseline justify-between gap-2 pt-1.5">
           <div className="flex items-baseline gap-2">

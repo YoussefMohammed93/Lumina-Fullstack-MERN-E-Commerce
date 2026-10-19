@@ -1,9 +1,29 @@
 import { useEffect, useState } from "react";
-import { Heart, Menu, Search, ShoppingBag, X } from "lucide-react";
+import {
+  Heart,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Search,
+  Settings,
+  ShoppingBag,
+  UserRound,
+  X,
+} from "lucide-react";
 import { useScrolled } from "@/hooks/useScrolled";
 import { useScrollLock } from "@/hooks/useOverlay";
-import { useCart } from "@/features/cart/CartProvider";
+import { useCart } from "@/features/cart/useCart";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/features/auth/useAuth";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const LINKS = [
   { label: "Shop", href: "/shop" },
@@ -68,6 +88,7 @@ export function Nav({
   const [menuOpen, setMenuOpen] = useState(false);
   const { totalQuantity } = useCart();
   const { wishlist } = useCart();
+  const { user, openAuth, logout } = useAuth();
 
   useScrollLock(menuOpen);
 
@@ -93,7 +114,10 @@ export function Nav({
         >
           <Wordmark />
 
-          <nav aria-label="Primary" className="ml-4 hidden items-center gap-7 md:flex">
+          <nav
+            aria-label="Primary"
+            className="ml-4 hidden items-center gap-7 md:flex"
+          >
             {LINKS.map((link) => (
               <a
                 key={link.href}
@@ -104,9 +128,18 @@ export function Nav({
                 <span className="absolute -bottom-1 left-0 h-px w-0 bg-clay transition-[width] duration-500 ease-luxe group-hover:w-full" />
               </a>
             ))}
+            {user?.role === "admin" && (
+              <a
+                href="/admin"
+                className="group relative text-[13px] text-foreground/70 transition-colors duration-300 hover:text-foreground"
+              >
+                Dashboard
+                <span className="absolute -bottom-1 left-0 h-px w-0 bg-clay transition-[width] duration-500 ease-luxe group-hover:w-full" />
+              </a>
+            )}
           </nav>
 
-          <div className="ml-auto flex items-center gap-0.5">
+          <div className="ml-auto flex items-center gap-1">
             <IconButton label="Search products" onClick={onSearch}>
               <Search className="size-[18px]" strokeWidth={1.25} />
             </IconButton>
@@ -120,6 +153,83 @@ export function Nav({
             <IconButton label="Open bag" onClick={onCart} count={totalQuantity}>
               <ShoppingBag className="size-[18px]" strokeWidth={1.25} />
             </IconButton>
+            {user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label="Open account menu"
+                    className="rounded-full outline-none ring-clay/40 transition-shadow focus-visible:ring-2"
+                  >
+                    <Avatar className="bg-secondary !size-9 text-foreground">
+                      <AvatarImage
+                        key={user.avatarUrl}
+                        src={user.avatarUrl}
+                        alt={user.name ?? user.username}
+                        referrerPolicy="no-referrer"
+                      />
+                      <AvatarFallback className="bg-secondary text-base text-clay">
+                        {(user.name ?? user.username).charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  sideOffset={12}
+                  className="w-64 rounded-[1.25rem] border-border bg-card p-2 shadow-[0_20px_50px_-24px_rgba(26,24,21,0.48)]"
+                >
+                  <DropdownMenuLabel className="px-3 py-2.5">
+                    <p className="truncate text-sm font-medium text-foreground">
+                      {user.name ?? user.username}
+                    </p>
+                    <p className="mt-0.5 truncate text-xs font-normal text-muted-foreground">
+                      {user.email}
+                    </p>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator className="mx-1 bg-border/70" />
+                  <DropdownMenuItem
+                    asChild
+                    className="mt-1 min-h-10 rounded-xl px-3 text-[13px] focus:bg-secondary"
+                  >
+                    <a href="/settings">
+                      <Settings className="size-4" />
+                      Settings
+                    </a>
+                  </DropdownMenuItem>
+                  {user.role === "admin" && (
+                    <DropdownMenuItem
+                      asChild
+                      className="min-h-10 rounded-xl px-3 text-[13px] focus:bg-secondary"
+                    >
+                      <a href="/admin">
+                        <LayoutDashboard className="size-4" />
+                        Dashboard
+                      </a>
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator className="mx-1 bg-border/70" />
+                  <DropdownMenuItem
+                    onSelect={() => void logout()}
+                    variant="destructive"
+                    className="min-h-10 rounded-xl px-3 text-[13px]"
+                  >
+                    <LogOut className="size-4" />
+                    Sign out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <button
+                type="button"
+                onClick={openAuth}
+                title="Sign in"
+                className="flex size-10 items-center justify-center rounded-full text-foreground/75 transition-colors hover:bg-foreground/[0.05] hover:text-foreground"
+                aria-label="Sign in"
+              >
+                <UserRound className="size-[18px]" strokeWidth={1.25} />
+              </button>
+            )}
 
             <button
               type="button"
@@ -150,8 +260,12 @@ export function Nav({
                 className="reveal-in flex items-baseline justify-between border-b border-border/60 py-4"
                 style={{ animationDelay: `${80 + index * 70}ms` }}
               >
-                <span className="font-serif text-4xl tracking-tight">{link.label}</span>
-                <span className="eyebrow text-muted-foreground">0{index + 1}</span>
+                <span className="font-serif text-4xl tracking-tight">
+                  {link.label}
+                </span>
+                <span className="eyebrow text-muted-foreground">
+                  0{index + 1}
+                </span>
               </a>
             ))}
           </nav>

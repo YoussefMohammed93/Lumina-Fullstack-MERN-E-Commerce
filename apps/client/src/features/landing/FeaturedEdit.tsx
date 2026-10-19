@@ -6,13 +6,7 @@ import { SectionHeading } from "@/components/SectionHeading";
 import { cn } from "@/lib/utils";
 import { categories } from "@/data/products";
 
-export function FeaturedEdit({
-  products,
-  onQuickView,
-}: {
-  products: Product[];
-  onQuickView: (product: Product) => void;
-}) {
+export function FeaturedEdit({ products }: { products: Product[] }) {
   const [active, setActive] = useState<string>("All");
 
   const visible =
@@ -60,10 +54,17 @@ export function FeaturedEdit({
                 )}
               >
                 {category}
-                <span className={cn("ml-2 tabular text-[10px]", isActive ? "text-background/60" : "text-muted-foreground")}>
+                <span
+                  className={cn(
+                    "ml-2 tabular text-[10px]",
+                    isActive ? "text-background/60" : "text-muted-foreground",
+                  )}
+                >
                   {category === "All"
                     ? products.length
-                    : products.filter((product) => product.category === category).length}
+                    : products.filter(
+                        (product) => product.category === category,
+                      ).length}
                 </span>
               </button>
             );
@@ -76,11 +77,7 @@ export function FeaturedEdit({
         >
           {visible.map((product, index) => (
             <Reveal key={product.id} delay={index * 60}>
-              <ProductCard
-                product={product}
-                productHref={`/products/${product.slug}`}
-                onQuickView={onQuickView}
-              />
+              <ProductCard product={product} />
             </Reveal>
           ))}
         </div>

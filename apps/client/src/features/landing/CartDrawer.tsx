@@ -4,7 +4,7 @@ import { formatPrice } from "@/services/api";
 import { SafeImage } from "@/components/motion/SafeImage";
 import { ArrowButton } from "@/components/ArrowButton";
 import { Drawer } from "@/components/Drawer";
-import { useCart } from "@/features/cart/CartProvider";
+import { useCart } from "@/features/cart/useCart";
 
 const FREE_SHIPPING_THRESHOLD = 150;
 
@@ -33,7 +33,9 @@ export function CartDrawer({
           <div className="space-y-4">
             <div className="flex items-center justify-between text-[13px]">
               <span className="text-muted-foreground">Subtotal</span>
-              <span className="tabular font-medium">{formatPrice(subtotal)}</span>
+              <span className="tabular font-medium">
+                {formatPrice(subtotal)}
+              </span>
             </div>
             <p className="text-[11px] leading-5 text-muted-foreground">
               Shipping and taxes are calculated at checkout. Complimentary
@@ -52,7 +54,10 @@ export function CartDrawer({
       {lines.length === 0 ? (
         <div className="flex h-full flex-col items-center justify-center gap-5 py-20 text-center">
           <span className="flex size-14 items-center justify-center rounded-full border border-border/80">
-            <ShoppingBag className="size-5 text-muted-foreground" strokeWidth={1} />
+            <ShoppingBag
+              className="size-5 text-muted-foreground"
+              strokeWidth={1}
+            />
           </span>
           <div className="space-y-2">
             <p className="font-serif text-2xl">Your bag is quiet</p>
@@ -86,7 +91,9 @@ export function CartDrawer({
 
           <ul className="divide-y divide-border/70">
             {lines.map((line) => {
-              const product = products.find((item) => item.id === line.productId);
+              const product = products.find(
+                (item) => item.id === line.productId,
+              );
               if (!product) return null;
 
               return (
@@ -118,7 +125,9 @@ export function CartDrawer({
                       <div className="flex items-center rounded-full border border-border/80">
                         <button
                           type="button"
-                          onClick={() => setQuantity(product.id, line.quantity - 1)}
+                          onClick={() =>
+                            setQuantity(product.id, line.quantity - 1)
+                          }
                           aria-label="Decrease quantity"
                           className="flex size-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground"
                         >
@@ -129,7 +138,9 @@ export function CartDrawer({
                         </span>
                         <button
                           type="button"
-                          onClick={() => setQuantity(product.id, line.quantity + 1)}
+                          onClick={() =>
+                            setQuantity(product.id, line.quantity + 1)
+                          }
                           aria-label="Increase quantity"
                           className="flex size-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground"
                         >

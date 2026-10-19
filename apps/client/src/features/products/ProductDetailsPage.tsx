@@ -11,10 +11,11 @@ import { Nav } from "@/features/landing/Nav";
 import { Footer } from "@/features/landing/Footer";
 import { CartDrawer } from "@/features/landing/CartDrawer";
 import { WishlistDrawer } from "@/features/landing/WishlistDrawer";
-import { QuickView } from "@/features/landing/QuickView";
 import { ProductCard } from "@/features/landing/ProductCard";
-import { useCart } from "@/features/cart/CartProvider";
+import { useCart } from "@/features/cart/useCart";
 import { useToast } from "@/features/toast/ToastProvider";
+import { authenticatedRequest } from "@/features/auth/auth-client";
+import { useAuth } from "@/features/auth/useAuth";
 import { cn } from "@/lib/utils";
 
 const demoReviews = [
@@ -104,7 +105,6 @@ export function ProductDetailsPage({
   const product = getProductBySlug(slug, products);
   const [cartOpen, setCartOpen] = useState(false);
   const [wishlistOpen, setWishlistOpen] = useState(false);
-  const [quickView, setQuickView] = useState<Product | null>(null);
 
   if (!product)
     return (
@@ -113,11 +113,13 @@ export function ProductDetailsPage({
         onWishlist={() => setWishlistOpen(true)}
       />
     );
+
   const related = products
     .filter(
       (item) => item.id !== product.id && item.category === product.category,
     )
     .slice(0, 4);
+
   const fallbackRelated = related.length
     ? related
     : products.filter((item) => item.id !== product.id).slice(0, 4);
@@ -167,7 +169,7 @@ export function ProductDetailsPage({
           <Specifications product={product} />
           <Reviews product={product} />
         </section>
-        <ReviewForm />
+        <ReviewForm productId={product.id} />
         <section className="mt-20 border-t border-border/70 pt-14">
           <p className="eyebrow text-clay">Considered together</p>
           <h2 className="mt-3 font-serif text-4xl tracking-tight">
@@ -175,12 +177,7 @@ export function ProductDetailsPage({
           </h2>
           <div className="mt-8 grid grid-cols-2 gap-x-3 gap-y-8 sm:gap-x-5 md:grid-cols-3 lg:grid-cols-4">
             {fallbackRelated.map((item) => (
-              <ProductCard
-                key={item.id}
-                product={item}
-                productHref={`/products/${item.slug}`}
-                onQuickView={setQuickView}
-              />
+              <ProductCard key={item.id} product={item} />
             ))}
           </div>
         </section>
@@ -195,9 +192,7 @@ export function ProductDetailsPage({
         open={wishlistOpen}
         onClose={() => setWishlistOpen(false)}
         products={products}
-        onQuickView={setQuickView}
       />
-      <QuickView product={quickView} onClose={() => setQuickView(null)} />
     </div>
   );
 }
@@ -205,6 +200,7 @@ export function ProductDetailsPage({
 function ProductGallery({ product }: { product: Product }) {
   const [active, setActive] = useState(0);
   const images = product.images.length ? product.images : [""];
+
   return (
     <div className="flex flex-col gap-3 sm:flex-row-reverse sm:items-start">
       <div className="aspect-square flex-1 overflow-hidden rounded-[1.75rem] bg-muted">
@@ -244,17 +240,21 @@ function ProductInfo({ product }: { product: Product }) {
   const { toast } = useToast();
   const [quantity, setQuantity] = useState(1);
   const wished = isWishlisted(product.id);
+
   const add = () => {
-    addItem(product, quantity);
+    if (!addItem(product, quantity)) return;
     toast("Added to your bag", `${quantity} × ${product.name}`);
   };
+
   const toggle = () => {
     const saved = toggleWishlist(product.id);
+    if (!saved && !isWishlisted(product.id)) return;
     toast(
       saved ? "Saved to your list" : "Removed from your list",
       product.name,
     );
   };
+
   return (
     <div className="flex flex-col lg:pt-3">
       <div className="flex items-start justify-between gap-5">
@@ -366,6 +366,7 @@ function Specifications({ product }: { product: Product }) {
     ["Availability", product.stock > 0 ? "In stock" : "Out of stock"],
     ["Inventory", `${product.stock} pieces`],
   ].filter(([, value]) => Boolean(value));
+
   return (
     <section>
       <p className="eyebrow text-clay">Details</p>
@@ -424,21 +425,41 @@ function Reviews({ product }: { product: Product }) {
     </section>
   );
 }
-function ReviewForm() {
+function ReviewForm({ productId }: { productId: string }) {
   const { toast } = useToast();
+  const { user, csrfToken, openAuth } = useAuth();
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
-  const submit = (event: FormEvent) => {
+
+  const submit = async (event: FormEvent) => {
     event.preventDefault();
+    if (!user || !csrfToken) {
+      openAuth();
+      return;
+    }
+
     if (!rating || !comment.trim()) {
       toast("Complete your review", "Choose a rating and add a comment.");
       return;
     }
-    toast(
-      "Sign in required",
-      "Reviews will be available after authentication is added.",
-    );
+
+    try {
+      await authenticatedRequest(
+        `/products/${encodeURIComponent(productId)}/reviews`,
+        csrfToken,
+        { method: "POST", body: JSON.stringify({ rating, comment }) },
+      );
+      toast("Review submitted", "It will appear after moderation.");
+      setRating(0);
+      setComment("");
+    } catch (error) {
+      toast(
+        "Could not submit review",
+        error instanceof Error ? error.message : "Please try again.",
+      );
+    }
   };
+
   return (
     <form onSubmit={submit} className="mt-14 border-t border-border/70 pt-14">
       <div className="rounded-[1.75rem] border border-border bg-card p-6 sm:p-8 lg:p-10">
@@ -449,17 +470,19 @@ function ReviewForm() {
               Write a review
             </h2>
             <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground">
-              Authentication will be required before reviews can be published.
+              {user
+                ? "Your review will be published after moderation."
+                : "Sign in to share your perspective."}
             </p>
           </div>
           <button
             type="button"
-            onClick={() =>
-              toast("Sign in required", "Authentication is coming soon.")
-            }
+            onClick={openAuth}
             className="shrink-0 text-sm underline underline-offset-4"
           >
-            Sign in to leave a review
+            {user
+              ? `Signed in as ${user.username}`
+              : "Sign in to leave a review"}
           </button>
         </div>
         <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(220px,.35fr)_minmax(0,1fr)]">
@@ -503,6 +526,7 @@ function ReviewForm() {
     </form>
   );
 }
+
 function Stars({ value }: { value: number }) {
   return (
     <span
@@ -518,6 +542,7 @@ function Stars({ value }: { value: number }) {
     </span>
   );
 }
+
 function NotFound({
   onCart,
   onWishlist,

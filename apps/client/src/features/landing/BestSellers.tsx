@@ -5,13 +5,7 @@ import { Reveal } from "@/components/motion/Reveal";
 import { SectionHeading } from "@/components/SectionHeading";
 import { ProductCard } from "./ProductCard";
 
-export function BestSellers({
-  products,
-  onQuickView,
-}: {
-  products: Product[];
-  onQuickView: (product: Product) => void;
-}) {
+export function BestSellers({ products }: { products: Product[] }) {
   const railRef = useRef<HTMLDivElement | null>(null);
 
   const scrollBy = (direction: 1 | -1) => {
@@ -33,8 +27,7 @@ export function BestSellers({
             eyebrow="Most loved"
             title={
               <>
-                What keeps{" "}
-                <em className="italic text-clay">returning.</em>
+                What keeps <em className="italic text-clay">returning.</em>
               </>
             }
             className="flex-1"
@@ -68,11 +61,7 @@ export function BestSellers({
               delay={index * 60}
               className="w-[78vw] max-w-[320px] shrink-0 snap-start sm:w-[42vw] lg:w-[300px]"
             >
-              <ProductCard
-                product={product}
-                productHref={`/products/${product.slug}`}
-                onQuickView={onQuickView}
-              />
+              <ProductCard product={product} />
             </Reveal>
           ))}
         </div>

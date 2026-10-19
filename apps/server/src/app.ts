@@ -1,15 +1,27 @@
 import express from "express";
 import cors from "cors";
 import productRouter from "./routes/product.routes.js";
+import authRouter from "./routes/auth.routes.js";
+import commerceRouter from "./routes/commerce.routes.js";
+import adminRouter from "./routes/admin.routes.js";
 
 const app = express();
 
 // ── Middleware
-app.use(cors());
+app.set("trust proxy", 1);
+app.use(
+  cors({
+    origin: process.env.CLIENT_ORIGIN ?? "http://localhost:3000",
+    credentials: true,
+  }),
+);
 app.use(express.json());
 
 // ── Routes
 app.use("/api/v1", productRouter);
+app.use("/api/v1/auth", authRouter);
+app.use("/api/v1", commerceRouter);
+app.use("/api/v1/admin", adminRouter);
 
 // ── Health check
 app.get("/health", (_req, res) => {

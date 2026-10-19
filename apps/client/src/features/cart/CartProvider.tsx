@@ -1,50 +1,18 @@
 import {
-  createContext,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
 import type { Product } from "@/types/product";
+import { authenticatedRequest } from "@/features/auth/auth-client";
+import { useAuth } from "@/features/auth/useAuth";
+import { CartContext, type CartContextValue } from "./cart-context";
 
-const STORAGE_KEY = "lumina.cart.v1";
-
-/** Cart lines are kept minimal here (id + qty); the server will own truth later. */
 interface StoredCart {
   lines: { productId: string; quantity: number }[];
   wishlist: string[];
-}
-
-interface CartContextValue {
-  lines: StoredCart["lines"];
-  lineCount: number;
-  totalQuantity: number;
-  subtotal: number;
-  addItem: (product: Product, quantity?: number) => void;
-  removeItem: (productId: string) => void;
-  setQuantity: (productId: string, quantity: number) => void;
-  clearCart: () => void;
-  wishlist: Set<string>;
-  isWishlisted: (productId: string) => boolean;
-  toggleWishlist: (productId: string) => boolean;
-}
-
-const CartContext = createContext<CartContextValue | null>(null);
-
-function readStorage(): StoredCart {
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { lines: [], wishlist: [] };
-    const parsed = JSON.parse(raw) as Partial<StoredCart>;
-    return {
-      lines: Array.isArray(parsed.lines) ? parsed.lines : [],
-      wishlist: Array.isArray(parsed.wishlist) ? parsed.wishlist : [],
-    };
-  } catch {
-    return { lines: [], wishlist: [] };
-  }
 }
 
 export function CartProvider({
@@ -54,97 +22,173 @@ export function CartProvider({
   products: Product[];
   children: ReactNode;
 }) {
-  const [state, setState] = useState<StoredCart>(() =>
-    typeof window === "undefined" ? { lines: [], wishlist: [] } : readStorage(),
-  );
+  const { user, csrfToken, openAuth } = useAuth();
+  const [hydratedUserId, setHydratedUserId] = useState<string | null>(null);
+  const [state, setState] = useState<StoredCart>({ lines: [], wishlist: [] });
 
   useEffect(() => {
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    } catch {
-      // Storage can be unavailable (private mode); the cart still works in memory.
+    if (!user) {
+      return;
     }
-  }, [state]);
+    let cancelled = false;
+    Promise.all([
+      fetch("/api/v1/cart", { credentials: "include" }).then((response) =>
+        response.json(),
+      ) as Promise<{ data?: StoredCart["lines"] }>,
+      fetch("/api/v1/wishlist", { credentials: "include" }).then((response) =>
+        response.json(),
+      ) as Promise<{ data?: string[] }>,
+    ])
+      .then(([cart, wishlist]) => {
+        if (cancelled) return;
+        setState({
+          lines: Array.isArray(cart.data) ? cart.data : [],
+          wishlist: Array.isArray(wishlist.data) ? wishlist.data : [],
+        });
+        setHydratedUserId(user.id);
+      })
+      .catch(() => {
+        if (!cancelled) setHydratedUserId(user.id);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
-  const addItem = useCallback((product: Product, quantity = 1) => {
-    setState((current) => {
-      const existing = current.lines.find((line) => line.productId === product.id);
-      const lines = existing
-        ? current.lines.map((line) =>
-            line.productId === product.id
-              ? {
-                  ...line,
-                  quantity: Math.min(line.quantity + quantity, Math.max(product.stock, 1)),
-                }
-              : line,
-          )
-        : [...current.lines, { productId: product.id, quantity }];
-      return { ...current, lines };
-    });
-  }, []);
+  useEffect(() => {
+    if (!user || !csrfToken || hydratedUserId !== user.id) return;
+    void authenticatedRequest("/cart", csrfToken, {
+      method: "PUT",
+      body: JSON.stringify({ items: state.lines }),
+    }).catch(() => undefined);
+    void authenticatedRequest("/wishlist", csrfToken, {
+      method: "PUT",
+      body: JSON.stringify({ productIds: state.wishlist }),
+    }).catch(() => undefined);
+  }, [csrfToken, hydratedUserId, state.lines, state.wishlist, user]);
 
-  const removeItem = useCallback((productId: string) => {
-    setState((current) => ({
-      ...current,
-      lines: current.lines.filter((line) => line.productId !== productId),
-    }));
-  }, []);
+  const addItem = useCallback(
+    (product: Product, quantity = 1) => {
+      if (!user) {
+        openAuth();
+        return false;
+      }
+      setState((current) => {
+        const existing = current.lines.find(
+          (line) => line.productId === product.id,
+        );
+        const lines = existing
+          ? current.lines.map((line) =>
+              line.productId === product.id
+                ? {
+                    ...line,
+                    quantity: Math.min(
+                      line.quantity + quantity,
+                      Math.max(product.stock, 1),
+                    ),
+                  }
+                : line,
+            )
+          : [...current.lines, { productId: product.id, quantity }];
+        return { ...current, lines };
+      });
+      return true;
+    },
+    [openAuth, user],
+  );
 
-  const setQuantity = useCallback((productId: string, quantity: number) => {
-    setState((current) => ({
-      ...current,
-      lines:
-        quantity <= 0
-          ? current.lines.filter((line) => line.productId !== productId)
-          : current.lines.map((line) =>
-              line.productId === productId ? { ...line, quantity } : line,
-            ),
-    }));
-  }, []);
+  const removeItem = useCallback(
+    (productId: string) => {
+      if (!user) {
+        openAuth();
+        return;
+      }
+      setState((current) => ({
+        ...current,
+        lines: current.lines.filter((line) => line.productId !== productId),
+      }));
+    },
+    [openAuth, user],
+  );
+
+  const setQuantity = useCallback(
+    (productId: string, quantity: number) => {
+      if (!user) {
+        openAuth();
+        return;
+      }
+      setState((current) => ({
+        ...current,
+        lines:
+          quantity <= 0
+            ? current.lines.filter((line) => line.productId !== productId)
+            : current.lines.map((line) =>
+                line.productId === productId ? { ...line, quantity } : line,
+              ),
+      }));
+    },
+    [openAuth, user],
+  );
 
   const clearCart = useCallback(() => {
+    if (!user) {
+      openAuth();
+      return;
+    }
     setState((current) => ({ ...current, lines: [] }));
-  }, []);
+  }, [openAuth, user]);
 
-  const toggleWishlist = useCallback((productId: string) => {
-    let added = false;
-    setState((current) => {
-      const has = current.wishlist.includes(productId);
-      added = !has;
-      return {
-        ...current,
-        wishlist: has
-          ? current.wishlist.filter((id) => id !== productId)
-          : [...current.wishlist, productId],
-      };
-    });
-    return added;
-  }, []);
+  const toggleWishlist = useCallback(
+    (productId: string) => {
+      if (!user) {
+        openAuth();
+        return false;
+      }
+      let added = false;
+      setState((current) => {
+        const has = current.wishlist.includes(productId);
+        added = !has;
+        return {
+          ...current,
+          wishlist: has
+            ? current.wishlist.filter((id) => id !== productId)
+            : [...current.wishlist, productId],
+        };
+      });
+      return added;
+    },
+    [openAuth, user],
+  );
+
+  // Never expose a previous account's state while signed out or switching users.
+  const visibleState = user && hydratedUserId === user.id
+    ? state
+    : { lines: [], wishlist: [] };
 
   const { subtotal, totalQuantity } = useMemo(() => {
     let sum = 0;
     let count = 0;
-    for (const line of state.lines) {
+    for (const line of visibleState.lines) {
       const product = products.find((item) => item.id === line.productId);
       if (!product) continue;
       sum += product.price * line.quantity;
       count += line.quantity;
     }
     return { subtotal: sum, totalQuantity: count };
-  }, [products, state.lines]);
+  }, [products, visibleState.lines]);
 
   const value = useMemo<CartContextValue>(
     () => ({
-      lines: state.lines,
-      lineCount: state.lines.length,
+      lines: visibleState.lines,
+      lineCount: visibleState.lines.length,
       totalQuantity,
       subtotal,
       addItem,
       removeItem,
       setQuantity,
       clearCart,
-      wishlist: new Set(state.wishlist),
-      isWishlisted: (productId) => state.wishlist.includes(productId),
+      wishlist: new Set(visibleState.wishlist),
+      isWishlisted: (productId) => visibleState.wishlist.includes(productId),
       toggleWishlist,
     }),
     [
@@ -152,8 +196,8 @@ export function CartProvider({
       clearCart,
       removeItem,
       setQuantity,
-      state.lines,
-      state.wishlist,
+      visibleState.lines,
+      visibleState.wishlist,
       subtotal,
       toggleWishlist,
       totalQuantity,
@@ -161,10 +205,4 @@ export function CartProvider({
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
-}
-
-export function useCart(): CartContextValue {
-  const context = useContext(CartContext);
-  if (!context) throw new Error("useCart must be used inside <CartProvider>");
-  return context;
 }

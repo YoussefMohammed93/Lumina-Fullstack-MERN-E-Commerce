@@ -13,7 +13,6 @@ import { Footer } from "./Footer";
 import { CartDrawer } from "./CartDrawer";
 import { WishlistDrawer } from "./WishlistDrawer";
 import { SearchOverlay } from "./SearchOverlay";
-import { QuickView } from "./QuickView";
 
 export function LandingPage({
   products,
@@ -27,7 +26,6 @@ export function LandingPage({
   const [cartOpen, setCartOpen] = useState(false);
   const [wishlistOpen, setWishlistOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [quickView, setQuickView] = useState<Product | null>(null);
 
   const featured = products[0];
   const bestSellers = [...products]
@@ -59,9 +57,9 @@ export function LandingPage({
         <Hero featured={featured} />
         <Marquee />
         <CategoryBento collections={collections} />
-        <FeaturedEdit products={products} onQuickView={setQuickView} />
+        <FeaturedEdit products={products} />
         <EditorialFeature />
-        <BestSellers products={bestSellers} onQuickView={setQuickView} />
+        <BestSellers products={bestSellers} />
         <Testimonials testimonials={testimonials} />
         <Newsletter />
       </main>
@@ -77,15 +75,12 @@ export function LandingPage({
         open={wishlistOpen}
         onClose={() => setWishlistOpen(false)}
         products={products}
-        onQuickView={setQuickView}
       />
       <SearchOverlay
         open={searchOpen}
         onClose={() => setSearchOpen(false)}
         products={products}
-        onQuickView={setQuickView}
       />
-      <QuickView product={quickView} onClose={() => setQuickView(null)} />
     </div>
   );
 }

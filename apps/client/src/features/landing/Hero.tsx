@@ -1,4 +1,4 @@
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, Hammer, RotateCcw, Truck } from "lucide-react";
 import type { Product } from "@/types/product";
 import { SafeImage } from "@/components/motion/SafeImage";
 import { ArrowButton } from "@/components/ArrowButton";
@@ -62,12 +62,17 @@ export function Hero({ featured }: { featured: Product }) {
           <Reveal delay={340}>
             <dl className="grid max-w-sm grid-cols-3 gap-4 border-t border-border/70 pt-6">
               {[
-                ["Small-batch", "makers"],
-                ["Ships in", "48 hours"],
-                ["30-day", "returns"],
-              ].map(([value, label]) => (
+                { value: "Small-batch", label: "Makers", icon: Hammer },
+                { value: "Ships in", label: "48 hours", icon: Truck },
+                { value: "30-day", label: "Returns", icon: RotateCcw },
+              ].map(({ value, label, icon: Icon }) => (
                 <div key={value}>
-                  <dt className="text-[13px] font-medium">{value}</dt>
+                  <dt className="flex flex-col gap-2 text-[13px] font-medium">
+                    <span className="flex size-7 sm:size-12 items-center justify-center rounded-full bg-secondary text-clay">
+                      <Icon className="size-4 sm:size-6" strokeWidth={1.35} />
+                    </span>
+                    {value}
+                  </dt>
                   <dd className="mt-0.5 text-[11px] text-muted-foreground">
                     {label}
                   </dd>

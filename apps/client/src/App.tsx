@@ -7,10 +7,16 @@ import {
 } from "@/services/api";
 import { CartProvider } from "@/features/cart/CartProvider";
 import { ToastProvider } from "@/features/toast/ToastProvider";
+import { AuthProvider } from "@/features/auth/AuthProvider";
 import { LandingPage } from "@/features/landing/LandingPage";
 import { ShopPage, ShopSkeleton } from "@/features/shop/ShopPage";
-import { ProductDetailsPage, ProductDetailsSkeleton } from "@/features/products/ProductDetailsPage";
+import {
+  ProductDetailsPage,
+  ProductDetailsSkeleton,
+} from "@/features/products/ProductDetailsPage";
 import { AlertCircle, RefreshCw } from "lucide-react";
+import { AdminDashboard } from "@/features/admin/AdminDashboard";
+import { SettingsPage } from "@/features/auth/SettingsPage";
 
 interface StoreData {
   products: Product[];
@@ -37,7 +43,9 @@ export function App() {
         if (!cancelled) setData({ products, collections, testimonials });
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Unable to load the store.");
+          setError(
+            err instanceof Error ? err.message : "Unable to load the store.",
+          );
         }
       }
     })();
@@ -53,7 +61,9 @@ export function App() {
         <AlertCircle className="size-6 text-clay" strokeWidth={1.25} />
         <div className="space-y-2">
           <p className="font-serif text-3xl">The collection could not load</p>
-          <p className="max-w-sm text-[13px] leading-6 text-muted-foreground">{error}</p>
+          <p className="max-w-sm text-[13px] leading-6 text-muted-foreground">
+            {error}
+          </p>
         </div>
         <button
           type="button"
@@ -71,35 +81,57 @@ export function App() {
     if (window.location.pathname === "/shop") {
       return <ShopSkeleton />;
     }
-    if (window.location.pathname.startsWith("/products/")) return <ProductDetailsSkeleton />;
+    if (window.location.pathname.startsWith("/products/"))
+      return <ProductDetailsSkeleton />;
     return (
       <div className="flex min-h-screen items-center justify-center overflow-hidden bg-background px-6">
-        <div aria-hidden="true" className="grain-texture pointer-events-none fixed inset-0 opacity-[0.035] mix-blend-multiply" />
+        <div
+          aria-hidden="true"
+          className="grain-texture pointer-events-none fixed inset-0 opacity-[0.035] mix-blend-multiply"
+        />
         <div className="relative flex flex-col items-center gap-5">
-          <div aria-hidden="true" className="lumina-loader"><span /></div>
-          <span className="font-serif text-[22px] tracking-[0.18em] uppercase">Lumina</span>
-          <span className="eyebrow text-muted-foreground">Preparing the collection</span>
+          <div aria-hidden="true" className="lumina-loader">
+            <span />
+          </div>
+          <span className="font-serif text-[22px] tracking-[0.18em] uppercase">
+            Lumina
+          </span>
+          <span className="eyebrow text-muted-foreground">
+            Preparing the collection
+          </span>
         </div>
       </div>
     );
   }
 
   return (
-    <ToastProvider>
-      <CartProvider products={data.products}>
-        {window.location.pathname === "/shop" ? (
-          <ShopPage products={data.products} />
-        ) : window.location.pathname.startsWith("/products/") ? (
-          <ProductDetailsPage products={data.products} slug={decodeURIComponent(window.location.pathname.split("/").filter(Boolean).at(-1) ?? "")} />
-        ) : (
-          <LandingPage
-            products={data.products}
-            collections={data.collections}
-            testimonials={data.testimonials}
-          />
-        )}
-      </CartProvider>
-    </ToastProvider>
+    <AuthProvider>
+      <ToastProvider>
+        <CartProvider products={data.products}>
+          {window.location.pathname === "/admin" ? (
+            <AdminDashboard />
+          ) : window.location.pathname === "/settings" ? (
+            <SettingsPage />
+          ) : window.location.pathname === "/shop" ? (
+            <ShopPage products={data.products} />
+          ) : window.location.pathname.startsWith("/products/") ? (
+            <ProductDetailsPage
+              products={data.products}
+              slug={decodeURIComponent(
+                window.location.pathname.split("/").filter(Boolean).at(-1) ??
+                  "",
+              )}
+            />
+          ) : (
+            <LandingPage
+              products={data.products}
+              collections={data.collections}
+              testimonials={data.testimonials}
+            />
+          )}
+        </CartProvider>
+      </ToastProvider>
+    </AuthProvider>
   );
 }
 

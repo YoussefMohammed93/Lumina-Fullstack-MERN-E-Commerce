@@ -17,6 +17,9 @@ export default defineConfig({
       "/api": {
         target: "http://localhost:5000",
         changeOrigin: true,
+        // Keep auth cookies owned by the same hostname that serves the UI.
+        // Always open the frontend as http://localhost:3000 in development.
+        cookieDomainRewrite: "localhost",
       },
     },
   },

@@ -3,18 +3,16 @@ import type { Product } from "@/types/product";
 import { Drawer } from "@/components/Drawer";
 import { SafeImage } from "@/components/motion/SafeImage";
 import { formatPrice } from "@/services/api";
-import { useCart } from "@/features/cart/CartProvider";
+import { useCart } from "@/features/cart/useCart";
 
 export function WishlistDrawer({
   open,
   onClose,
   products,
-  onQuickView,
 }: {
   open: boolean;
   onClose: () => void;
   products: Product[];
-  onQuickView: (product: Product) => void;
 }) {
   const { wishlist, toggleWishlist, addItem } = useCart();
   const saved = products.filter((product) => wishlist.has(product.id));
@@ -42,20 +40,21 @@ export function WishlistDrawer({
         <ul className="divide-y divide-border/70">
           {saved.map((product) => (
             <li key={product.id} className="flex gap-4 py-5 first:pt-0">
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  onQuickView(product);
-                }}
+              <a
+                href={`/products/${product.slug}`}
+                onClick={onClose}
                 className="size-24 shrink-0 overflow-hidden rounded-xl bg-muted"
                 aria-label={`View ${product.name}`}
               >
                 <SafeImage src={product.images[0]} alt={product.name} />
-              </button>
+              </a>
               <div className="flex min-w-0 flex-1 flex-col">
-                <p className="eyebrow text-muted-foreground">{product.category}</p>
-                <p className="mt-1 font-serif text-lg leading-tight">{product.name}</p>
+                <p className="eyebrow text-muted-foreground">
+                  {product.category}
+                </p>
+                <p className="mt-1 font-serif text-lg leading-tight">
+                  {product.name}
+                </p>
                 <span className="tabular mt-1 text-[12px]">
                   {formatPrice(product.price)}
                 </span>

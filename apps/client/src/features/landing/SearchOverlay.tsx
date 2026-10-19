@@ -11,12 +11,10 @@ export function SearchOverlay({
   open,
   onClose,
   products,
-  onQuickView,
 }: {
   open: boolean;
   onClose: () => void;
   products: Product[];
-  onQuickView: (product: Product) => void;
 }) {
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -25,8 +23,10 @@ export function SearchOverlay({
 
   useEffect(() => {
     if (!open) return;
-    setQuery("");
-    const timer = window.setTimeout(() => inputRef.current?.focus(), 80);
+    const timer = window.setTimeout(() => {
+      setQuery("");
+      inputRef.current?.focus();
+    }, 80);
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
     };
@@ -57,7 +57,10 @@ export function SearchOverlay({
     <div className="fixed inset-0 z-50 flex flex-col bg-background">
       <div className="border-b border-border/70 px-4 sm:px-6 lg:px-8">
         <div className="mx-auto flex h-20 max-w-4xl items-center gap-4">
-          <Search className="size-5 shrink-0 text-muted-foreground" strokeWidth={1.25} />
+          <Search
+            className="size-5 shrink-0 text-muted-foreground"
+            strokeWidth={1.25}
+          />
           <input
             ref={inputRef}
             value={query}
@@ -110,19 +113,18 @@ export function SearchOverlay({
             <ul className="divide-y divide-border/70">
               {results.map((product) => (
                 <li key={product.id}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onQuickView(product);
-                      onClose();
-                    }}
+                  <a
+                    href={`/products/${product.slug}`}
+                    onClick={onClose}
                     className="group flex w-full items-center gap-5 py-4 text-left"
                   >
                     <div className="size-16 shrink-0 overflow-hidden rounded-xl bg-muted">
                       <SafeImage src={product.images[0]} alt={product.name} />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="eyebrow text-muted-foreground">{product.category}</p>
+                      <p className="eyebrow text-muted-foreground">
+                        {product.category}
+                      </p>
                       <p className="mt-0.5 truncate font-serif text-xl group-hover:text-clay">
                         {product.name}
                       </p>
@@ -130,7 +132,7 @@ export function SearchOverlay({
                     <span className="tabular shrink-0 text-[13px]">
                       {formatPrice(product.price)}
                     </span>
-                  </button>
+                  </a>
                 </li>
               ))}
             </ul>
