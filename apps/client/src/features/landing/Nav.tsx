@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Heart,
   LayoutDashboard,
@@ -31,6 +31,12 @@ const LINKS = [
   { label: "Journal", href: "/journal" },
   { label: "About", href: "/about" },
 ];
+
+function isCurrentLink(href: string) {
+  const { pathname, hash } = window.location;
+  if (href.includes("#")) return href === `${pathname}${hash}`;
+  return pathname === href;
+}
 
 function Wordmark() {
   return (
@@ -86,27 +92,64 @@ export function Nav({
 }) {
   const scrolled = useScrolled(16);
   const [menuOpen, setMenuOpen] = useState(false);
-  const { totalQuantity } = useCart();
-  const { wishlist } = useCart();
+  const { totalQuantity, wishlist } = useCart();
   const { user, openAuth, logout } = useAuth();
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
+  const wasFocusedRef = useRef<HTMLElement | null>(null);
+  const mobileLinks = user?.role === "admin"
+    ? [...LINKS, { label: "Dashboard", href: "/admin" }]
+    : LINKS;
 
   useScrollLock(menuOpen);
 
   useEffect(() => {
     if (!menuOpen) return;
+    wasFocusedRef.current = document.activeElement as HTMLElement;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setMenuOpen(false);
+      if (event.key === "Escape") {
+        setMenuOpen(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusable = Array.from(
+        mobileMenuRef.current?.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ) ?? [],
+      );
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    mobileMenuRef.current?.querySelector<HTMLElement>("a")?.focus();
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      wasFocusedRef.current?.focus();
+    };
   }, [menuOpen]);
+
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 768px)");
+    const closeOnDesktop = (event: MediaQueryListEvent) => {
+      if (event.matches) setMenuOpen(false);
+    };
+    media.addEventListener("change", closeOnDesktop);
+    return () => media.removeEventListener("change", closeOnDesktop);
+  }, []);
 
   return (
     <>
       <div className="sticky top-0 z-40 px-4 pt-3 sm:px-6 lg:px-8">
         <header
           className={cn(
-            "mx-auto flex h-16 max-w-6xl items-center gap-3 rounded-full border px-2 pr-2 pl-5 transition-all duration-700 ease-luxe sm:gap-8 sm:pl-7",
+            "relative mx-auto flex h-16 max-w-6xl items-center gap-3 rounded-full border px-2 pr-2 pl-5 transition-all duration-700 ease-luxe sm:gap-8 sm:pl-7",
             scrolled
               ? "border-border/80 bg-background/80 shadow-[0_18px_40px_-30px_rgba(26,24,21,0.45)] backdrop-blur-sm"
               : "border-transparent bg-background/40",
@@ -116,21 +159,28 @@ export function Nav({
 
           <nav
             aria-label="Primary"
-            className="ml-4 hidden items-center gap-7 md:flex"
+            className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-7 md:flex"
           >
             {LINKS.map((link) => (
               <a
                 key={link.href}
                 href={link.href}
+                aria-current={isCurrentLink(link.href) ? "page" : undefined}
                 className="group relative text-[13px] text-foreground/70 transition-colors duration-300 hover:text-foreground"
               >
                 {link.label}
-                <span className="absolute -bottom-1 left-0 h-px w-0 bg-clay transition-[width] duration-500 ease-luxe group-hover:w-full" />
+                <span
+                  className={cn(
+                    "absolute -bottom-1 left-0 h-px bg-clay transition-[width] duration-500 ease-luxe group-hover:w-full",
+                    isCurrentLink(link.href) ? "w-full" : "w-0",
+                  )}
+                />
               </a>
             ))}
             {user?.role === "admin" && (
               <a
                 href="/admin"
+                aria-current={isCurrentLink("/admin") ? "page" : undefined}
                 className="group relative text-[13px] text-foreground/70 transition-colors duration-300 hover:text-foreground"
               >
                 Dashboard
@@ -236,6 +286,7 @@ export function Nav({
               onClick={() => setMenuOpen((open) => !open)}
               aria-label={menuOpen ? "Close menu" : "Open menu"}
               aria-expanded={menuOpen}
+              aria-controls="mobile-navigation"
               className="flex size-10 items-center justify-center rounded-full text-foreground/75 transition-colors hover:text-foreground md:hidden"
             >
               {menuOpen ? (
@@ -250,13 +301,18 @@ export function Nav({
 
       {/* Mobile menu — full-screen ivory overlay with staggered links. */}
       {menuOpen && (
-        <div className="fixed inset-0 z-30 flex flex-col bg-background px-6 pt-28 pb-10 md:hidden">
+        <div
+          id="mobile-navigation"
+          ref={mobileMenuRef}
+          className="fixed inset-0 z-30 flex flex-col bg-background px-6 pt-28 pb-10 md:hidden"
+        >
           <nav aria-label="Mobile" className="flex flex-col gap-2">
-            {LINKS.map((link, index) => (
+            {mobileLinks.map((link, index) => (
               <a
                 key={link.href}
                 href={link.href}
                 onClick={() => setMenuOpen(false)}
+                aria-current={isCurrentLink(link.href) ? "page" : undefined}
                 className="reveal-in flex items-baseline justify-between border-b border-border/60 py-4"
                 style={{ animationDelay: `${80 + index * 70}ms` }}
               >
@@ -271,6 +327,19 @@ export function Nav({
           </nav>
 
           <div className="mt-auto space-y-4">
+            {!user && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMenuOpen(false);
+                  openAuth();
+                }}
+                className="inline-flex h-11 items-center gap-2 rounded-full border border-border px-5 text-sm transition-colors hover:bg-secondary"
+              >
+                <UserRound className="size-4" strokeWidth={1.5} />
+                Sign in
+              </button>
+            )}
             <p className="text-[13px] leading-6 text-muted-foreground">
               Objects for considered living — made in small batches, shipped
               within 48 hours.
