@@ -116,7 +116,8 @@ export function App() {
     <AuthProvider>
       <ToastProvider>
         <CartProvider products={data.products}>
-          {window.location.pathname === "/admin" ? (
+          {window.location.pathname === "/admin" ||
+          window.location.pathname.startsWith("/admin/") ? (
             <AdminDashboard />
           ) : window.location.pathname === "/settings" ? (
             <SettingsPage />
@@ -147,7 +148,11 @@ export function App() {
             window.location.pathname.startsWith("/journal/") ? (
             <JournalPage
               products={data.products}
-              slug={window.location.pathname.startsWith("/journal/") ? window.location.pathname.split("/").filter(Boolean).at(-1) : undefined}
+              slug={
+                window.location.pathname.startsWith("/journal/")
+                  ? window.location.pathname.split("/").filter(Boolean).at(-1)
+                  : undefined
+              }
             />
           ) : window.location.pathname.startsWith("/products/") ? (
             <ProductDetailsPage
