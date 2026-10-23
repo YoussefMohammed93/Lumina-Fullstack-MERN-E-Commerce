@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { Cart } from "../models/commerce.model.js";
 import { Order } from "../models/order.model.js";
-import { catalogById } from "../data/catalog.js";
+import { Product } from "../models/product.model.js";
 import { getStripe } from "../lib/stripe.js";
 import { requireAuth, requireCsrf } from "../middleware/auth.middleware.js";
 
@@ -42,14 +42,38 @@ async function cartItemsForCheckout(userId: string) {
   const cart = await Cart.findOne({ userId }).lean();
   if (!cart?.items.length) throw new Error("Your bag is empty.");
 
-  return cart.items.map((line) => {
-    const product = catalogById.get(line.productId);
-    if (!product || line.quantity < 1 || line.quantity > product.stock)
-      throw new Error(
-        "One or more products are unavailable. Please review your bag.",
-      );
-    return { ...product, quantity: line.quantity };
-  });
+  return Promise.all(
+    cart.items.map(async (line) => {
+      const product = await Product.findOne({
+        _id: line.productId,
+        status: "active",
+        trashedAt: null,
+      }).lean();
+      const variant = product?.variants.find(
+        (item: any) => String(item._id) === line.variantId && item.isActive,
+      ) as any;
+      if (
+        !product ||
+        !variant ||
+        line.quantity < 1 ||
+        line.quantity > variant.stock
+      )
+        throw new Error(
+          "One or more products are unavailable. Please review your bag.",
+        );
+      return {
+        id: String(product._id),
+        variantId: String(variant._id),
+        sku: variant.sku,
+        attributes: variant.attributes,
+        name: product.name,
+        price: variant.price,
+        stock: variant.stock,
+        cashOnDeliveryAvailable: product.cashOnDeliveryAvailable,
+        quantity: line.quantity,
+      };
+    }),
+  );
 }
 
 function optionalString(value: unknown): string | undefined {
@@ -62,12 +86,17 @@ router.post("/checkout/stripe", requireCsrf, async (req, res, next) => {
 
     const order = await Order.create({
       userId: req.user!._id,
-      items: items.map(({ id, name, price, quantity }) => ({
-        productId: id,
-        name,
-        unitAmount: price * 100,
-        quantity,
-      })),
+      items: items.map(
+        ({ id, variantId, sku, attributes, name, price, quantity }) => ({
+          productId: id,
+          variantId,
+          sku,
+          attributes,
+          name,
+          unitAmount: price * 100,
+          quantity,
+        }),
+      ),
 
       amountTotal: items.reduce(
         (total, item) => total + item.price * 100 * item.quantity,
@@ -152,12 +181,25 @@ router.post(
 
       const order = await Order.create({
         userId: req.user!._id,
-        items: items.map(({ id, name: productName, price, quantity }) => ({
-          productId: id,
-          name: productName,
-          unitAmount: price * 100,
-          quantity,
-        })),
+        items: items.map(
+          ({
+            id,
+            variantId,
+            sku,
+            attributes,
+            name: productName,
+            price,
+            quantity,
+          }) => ({
+            productId: id,
+            variantId,
+            sku,
+            attributes,
+            name: productName,
+            unitAmount: price * 100,
+            quantity,
+          }),
+        ),
         amountTotal: items.reduce(
           (total, item) => total + item.price * 100 * item.quantity,
           0,
@@ -232,7 +274,10 @@ router.get("/checkout/stripe/session/:sessionId", async (req, res, next) => {
     if (order?.paymentStatus === "paid") {
       await Cart.updateOne({ userId: req.user!._id }, { $set: { items: [] } });
     }
-    if (!order) throw new Error("Order could not be retrieved after payment reconciliation.");
+    if (!order)
+      throw new Error(
+        "Order could not be retrieved after payment reconciliation.",
+      );
     res.json({
       success: true,
       data: { id: String(order._id), paymentStatus: order.paymentStatus },

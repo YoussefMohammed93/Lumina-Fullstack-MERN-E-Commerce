@@ -11,6 +11,7 @@ const cartSchema = new Schema(
     items: [
       {
         productId: { type: String, required: true },
+        variantId: { type: String, required: true },
         quantity: { type: Number, required: true, min: 1 },
       },
     ],

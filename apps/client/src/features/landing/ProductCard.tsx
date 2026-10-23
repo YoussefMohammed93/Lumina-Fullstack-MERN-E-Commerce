@@ -17,12 +17,15 @@ export function ProductCard({
 }) {
   const { addItem, isWishlisted, toggleWishlist } = useCart();
   const { toast } = useToast();
-  const [added, setAdded] = useState(false);
   const wished = isWishlisted(product.id);
+  const [added, setAdded] = useState(false);
   const productHref = `/products/${product.slug}`;
+  const quickAddVariant = product.variants?.find(
+    (variant) => variant.isActive && variant.stock > 0,
+  );
 
   const handleAdd = () => {
-    if (!addItem(product)) return;
+    if (!quickAddVariant || !addItem(product, 1, quickAddVariant.id)) return;
     toast("Added to your bag", product.name);
     setAdded(true);
     window.setTimeout(() => setAdded(false), 1400);
@@ -81,16 +84,10 @@ export function ProductCard({
             )}
           />
         </button>
-
         <div className="absolute inset-x-3 bottom-3 translate-y-3 opacity-0 transition-all duration-500 ease-luxe group-hover/card:translate-y-0 group-hover/card:opacity-100 max-md:hidden">
-          <button
-            type="button"
-            onClick={handleAdd}
-            disabled={product.stock === 0}
-            className="flex h-11 w-full items-center justify-center gap-2 rounded-full bg-background/95 text-[13px] font-medium text-foreground shadow-[0_12px_30px_-16px_rgba(26,24,21,0.5)] backdrop-blur-sm transition-colors duration-300 hover:bg-background disabled:opacity-60"
-          >
+          <button type="button" onClick={handleAdd} disabled={!quickAddVariant} className="flex h-11 w-full items-center justify-center gap-2 rounded-full bg-background/95 text-[13px] font-medium text-foreground shadow-[0_12px_30px_-16px_rgba(26,24,21,0.5)] backdrop-blur-sm transition-colors hover:bg-background disabled:opacity-60">
             <ShoppingBag className="size-3.5" strokeWidth={1.5} />
-            {added ? "Added" : product.stock === 0 ? "Sold out" : "Quick add"}
+            {added ? "Added" : quickAddVariant ? "Add to bag" : "Sold out"}
           </button>
         </div>
       </div>
@@ -123,16 +120,9 @@ export function ProductCard({
             {product.stock > 0 ? `${product.stock} in stock` : "Sold out"}
           </span>
         </div>
-        <div className="mt-2 flex justify-end md:hidden">
-          <button
-            type="button"
-            onClick={handleAdd}
-            disabled={product.stock === 0}
-            className="rounded-full border border-border px-3 py-1.5 text-[11px] font-medium transition-colors hover:bg-muted disabled:opacity-50"
-          >
-            {added ? "Added" : "Add to bag"}
-          </button>
-        </div>
+        <button type="button" onClick={handleAdd} disabled={!quickAddVariant} className="mt-2 self-end rounded-full border border-border px-3 py-1.5 text-[11px] font-medium transition-colors hover:bg-muted disabled:opacity-50 md:hidden">
+          {added ? "Added" : quickAddVariant ? "Add to bag" : "Sold out"}
+        </button>
       </div>
     </article>
   );

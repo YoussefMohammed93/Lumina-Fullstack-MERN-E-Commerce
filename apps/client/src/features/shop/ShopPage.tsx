@@ -400,6 +400,7 @@ export function ShopPage({ products }: { products: Product[] }) {
         onSearch={() => document.getElementById("shop-search")?.focus()}
         onCart={() => setCartOpen(true)}
         onWishlist={() => setWishlistOpen(true)}
+        products={products}
       />
       <main className="mx-auto max-w-6xl px-4 pt-14 pb-20 sm:px-6 md:px-8 lg:px-0">
         <header className="border-b border-border/70 pb-8">

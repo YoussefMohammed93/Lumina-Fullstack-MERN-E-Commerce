@@ -5,6 +5,9 @@ import { AdminSidebar } from "@/features/admin/components/AdminSidebar";
 import { AdminTopbar } from "@/features/admin/components/AdminTopbar";
 import { DashboardPage } from "@/features/admin/pages/DashboardPage";
 import { ResourcePage } from "@/features/admin/pages/ResourcePage";
+import { ProductsPage } from "@/features/admin/pages/ProductsPage";
+import { ProductTrashPage } from "@/features/admin/pages/ProductTrashPage";
+import { ProductRecycleBinPage } from "@/features/admin/pages/ProductRecycleBinPage";
 
 export function AdminDashboard() {
   const { user, loading, openAuth, logout } = useAuth();
@@ -16,12 +19,7 @@ export function AdminDashboard() {
       apiRequest("/admin/dashboard/overview").catch(() => undefined);
   }, [user?.role]);
 
-  if (loading)
-    return (
-      <main className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
-        Loading dashboard…
-      </main>
-    );
+  if (loading) return null;
   if (!user)
     return (
       <main className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
@@ -68,7 +66,13 @@ export function AdminDashboard() {
           onLogout={() => void logout()}
         />
         <main className="mx-auto px-4 pt-25 pb-7 md:px-7 md:pt-27 md:pb-9">
-          {page ? (
+          {page === "products" ? (
+            <ProductsPage />
+          ) : page === "drafts" ? (
+            <ProductTrashPage />
+          ) : page === "trash" ? (
+            <ProductRecycleBinPage />
+          ) : page ? (
             <ResourcePage page={page} />
           ) : (
             <DashboardPage userName={user.name || user.username} />

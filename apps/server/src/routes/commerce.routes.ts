@@ -20,10 +20,17 @@ router.put("/cart", requireCsrf, async (req, res, next) => {
     const items = Array.isArray(req.body.items)
       ? req.body.items
           .filter(
-            (item: unknown): item is { productId: string; quantity: number } =>
+            (
+              item: unknown,
+            ): item is {
+              productId: string;
+              variantId: string;
+              quantity: number;
+            } =>
               typeof item === "object" &&
               item !== null &&
               typeof (item as { productId?: unknown }).productId === "string" &&
+              typeof (item as { variantId?: unknown }).variantId === "string" &&
               Number.isInteger((item as { quantity?: unknown }).quantity) &&
               (item as { quantity: number }).quantity > 0 &&
               (item as { quantity: number }).quantity <= 99,
@@ -109,4 +116,5 @@ router.post(
     }
   },
 );
+
 export default router;

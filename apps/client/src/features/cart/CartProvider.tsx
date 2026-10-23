@@ -11,7 +11,7 @@ import { useAuth } from "@/features/auth/useAuth";
 import { CartContext, type CartContextValue } from "./cart-context";
 
 interface StoredCart {
-  lines: { productId: string; quantity: number }[];
+  lines: { productId: string; variantId: string; quantity: number }[];
   wishlist: string[];
 }
 
@@ -68,18 +68,24 @@ export function CartProvider({
   }, [csrfToken, hydratedUserId, state.lines, state.wishlist, user]);
 
   const addItem = useCallback(
-    (product: Product, quantity = 1) => {
+    (product: Product, quantity = 1, variantId?: string) => {
       if (!user) {
         openAuth();
         return false;
       }
+      const resolvedVariantId =
+        variantId ?? product.variants?.find((variant) => variant.isActive)?.id;
+      if (!resolvedVariantId) return false;
       setState((current) => {
         const existing = current.lines.find(
-          (line) => line.productId === product.id,
+          (line) =>
+            line.productId === product.id &&
+            line.variantId === resolvedVariantId,
         );
         const lines = existing
           ? current.lines.map((line) =>
-              line.productId === product.id
+              line.productId === product.id &&
+              line.variantId === resolvedVariantId
                 ? {
                     ...line,
                     quantity: Math.min(
@@ -89,7 +95,10 @@ export function CartProvider({
                   }
                 : line,
             )
-          : [...current.lines, { productId: product.id, quantity }];
+          : [
+              ...current.lines,
+              { productId: product.id, variantId: resolvedVariantId, quantity },
+            ];
         return { ...current, lines };
       });
       return true;
@@ -98,21 +107,24 @@ export function CartProvider({
   );
 
   const removeItem = useCallback(
-    (productId: string) => {
+    (productId: string, variantId: string) => {
       if (!user) {
         openAuth();
         return;
       }
       setState((current) => ({
         ...current,
-        lines: current.lines.filter((line) => line.productId !== productId),
+        lines: current.lines.filter(
+          (line) =>
+            line.productId !== productId || line.variantId !== variantId,
+        ),
       }));
     },
     [openAuth, user],
   );
 
   const setQuantity = useCallback(
-    (productId: string, quantity: number) => {
+    (productId: string, variantId: string, quantity: number) => {
       if (!user) {
         openAuth();
         return;
@@ -121,13 +133,60 @@ export function CartProvider({
         ...current,
         lines:
           quantity <= 0
-            ? current.lines.filter((line) => line.productId !== productId)
+            ? current.lines.filter(
+                (line) =>
+                  line.productId !== productId || line.variantId !== variantId,
+              )
             : current.lines.map((line) =>
-                line.productId === productId ? { ...line, quantity } : line,
+                line.productId === productId && line.variantId === variantId
+                  ? { ...line, quantity }
+                  : line,
               ),
       }));
     },
     [openAuth, user],
+  );
+
+  const setVariant = useCallback(
+    (productId: string, currentVariantId: string, nextVariantId: string) => {
+      if (!user) {
+        openAuth();
+        return;
+      }
+      if (currentVariantId === nextVariantId) return;
+      const product = products.find((item) => item.id === productId);
+      const nextVariant = product?.variants?.find(
+        (item) => item.id === nextVariantId && item.isActive,
+      );
+      if (!nextVariant || nextVariant.stock < 1) return;
+      setState((current) => {
+        const line = current.lines.find(
+          (item) => item.productId === productId && item.variantId === currentVariantId,
+        );
+        if (!line) return current;
+        const existing = current.lines.find(
+          (item) => item.productId === productId && item.variantId === nextVariantId,
+        );
+        const nextQuantity = Math.min(
+          nextVariant.stock,
+          line.quantity + (existing?.quantity ?? 0),
+        );
+        const withoutCurrent = current.lines.filter(
+          (item) => item.productId !== productId || item.variantId !== currentVariantId,
+        );
+        return {
+          ...current,
+          lines: existing
+            ? withoutCurrent.map((item) =>
+                item.productId === productId && item.variantId === nextVariantId
+                  ? { ...item, quantity: nextQuantity }
+                  : item,
+              )
+            : [...withoutCurrent, { productId, variantId: nextVariantId, quantity: nextQuantity }],
+        };
+      });
+    },
+    [openAuth, products, user],
   );
 
   const clearCart = useCallback(async () => {
@@ -178,7 +237,10 @@ export function CartProvider({
     for (const line of visibleState.lines) {
       const product = products.find((item) => item.id === line.productId);
       if (!product) continue;
-      sum += product.price * line.quantity;
+      const variant = product.variants?.find(
+        (item) => item.id === line.variantId,
+      );
+      sum += (variant?.price ?? product.price) * line.quantity;
       count += line.quantity;
     }
     return { subtotal: sum, totalQuantity: count };
@@ -193,6 +255,7 @@ export function CartProvider({
       addItem,
       removeItem,
       setQuantity,
+      setVariant,
       clearCart,
       wishlist: new Set(visibleState.wishlist),
       isWishlisted: (productId) => visibleState.wishlist.includes(productId),
@@ -203,6 +266,7 @@ export function CartProvider({
       clearCart,
       removeItem,
       setQuantity,
+      setVariant,
       visibleState.lines,
       visibleState.wishlist,
       subtotal,

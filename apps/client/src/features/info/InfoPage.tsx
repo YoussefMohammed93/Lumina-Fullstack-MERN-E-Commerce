@@ -145,6 +145,7 @@ export function InfoPage({
         }}
         onCart={() => setCartOpen(true)}
         onWishlist={() => setWishlistOpen(true)}
+        products={products}
       />
       <main className="mx-auto max-w-4xl px-5 pt-14 pb-20 sm:px-6 lg:px-8">
         <header className="max-w-3xl border-b border-border/70 pb-12">

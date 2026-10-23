@@ -45,7 +45,7 @@ export function SearchOverlay({
         (product) =>
           product.name.toLowerCase().includes(value) ||
           product.category.toLowerCase().includes(value) ||
-          product.materials.toLowerCase().includes(value) ||
+          (product.materials ?? "").toLowerCase().includes(value) ||
           product.description.toLowerCase().includes(value),
       )
       .slice(0, 5);

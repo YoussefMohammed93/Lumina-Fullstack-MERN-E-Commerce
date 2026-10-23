@@ -1,24 +1,56 @@
 export type ProductBadge = "new" | "limited" | "sale";
+export type ProductStatus = "draft" | "active" | "archived";
+
+export interface ProductImage {
+  url: string;
+  publicId?: string;
+  alt: string;
+  sortOrder: number;
+}
+
+export interface ProductVariant {
+  id: string;
+  sku: string;
+  attributes: Record<string, string>;
+  price: number;
+  compareAtPrice?: number;
+  stock: number;
+  isActive: boolean;
+}
 
 export interface Product {
-  /** Stable identifier — maps to MongoDB `_id` once the API is wired. */
   id: string;
   name: string;
   slug: string;
   description: string;
-  /** Price in major EGP units, formatted at the edge. */
-  price: number;
-  compareAtPrice?: number;
+  brand?: string;
   category: string;
+  categoryId?: string;
+  categorySlug?: string;
   images: string[];
   stock: number;
   rating: number;
   reviewCount: number;
+  price: number;
+  priceMax?: number;
+  compareAtPrice?: number;
   badge?: ProductBadge;
-  materials: string;
+  materials?: string;
   dimensions?: string;
-  /** Defaults to enabled while mock catalogues are being migrated. */
   cashOnDeliveryAvailable?: boolean;
+  status?: ProductStatus;
+  trashedAt?: string;
+  variants?: ProductVariant[];
+}
+
+export interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  image?: string;
+  isActive?: boolean;
+  sortOrder?: number;
 }
 
 export interface Collection {
@@ -28,7 +60,6 @@ export interface Collection {
   description: string;
   image: string;
   href: string;
-  /** Grid span used by the bento layout on desktop. */
   span: "wide" | "tall" | "standard";
 }
 
@@ -43,10 +74,11 @@ export interface Testimonial {
 
 export interface CartLine {
   productId: string;
+  variantId: string;
   quantity: number;
 }
 
 export interface ProductsApiResponse {
   success: boolean;
-  data: Product[];
+  data: { items: Product[]; page: number; pageCount: number; total: number };
 }

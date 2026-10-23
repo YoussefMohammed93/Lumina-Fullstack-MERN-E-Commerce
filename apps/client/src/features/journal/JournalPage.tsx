@@ -83,6 +83,7 @@ function Shell({
         }}
         onCart={() => setCartOpen(true)}
         onWishlist={() => setWishlistOpen(true)}
+        products={products}
       />
       {children}
       <Footer />

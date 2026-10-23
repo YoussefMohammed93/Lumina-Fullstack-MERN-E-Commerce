@@ -4,42 +4,46 @@ import type {
   Product,
   Testimonial,
 } from "../types/product";
-import { collections, products, testimonials } from "../data/products";
+import { collections, testimonials } from "../data/products";
 
-/**
- * Single seam between the UI and its data source.
- *
- * Today every function resolves from `src/data`. When the Express API lands,
- * replace the body of each function with a fetch against
- * `http://localhost:5000/api/v1/...` (or the Vite-proxied `/api/v1/...`)
- * and keep the return types — no component needs to change.
- */
+type Envelope<T> = { success: boolean; data?: T; error?: { message?: string } };
 
-const delay = (ms = 260) => new Promise((resolve) => setTimeout(resolve, ms));
+async function request<T>(path: string): Promise<T> {
+  const response = await fetch(`/api/v1${path}`);
+  const body = (await response.json().catch(() => ({}))) as Envelope<T>;
 
-export async function fetchProducts(): Promise<Product[]> {
-  await delay();
-  return products;
+  if (!response.ok || !body.success)
+    throw new Error(body.error?.message ?? "Unable to load catalog.");
+
+  return body.data as T;
 }
 
-/** Product detail seam. Swap this lookup for GET /api/v1/products/:slug later. */
+export async function fetchProducts(): Promise<Product[]> {
+  const result =
+    await request<ProductsApiResponse["data"]>("/products?limit=48");
+
+  return result.items.map((item) => ({
+    ...item,
+    images: item.images.map((image) =>
+      imageUrl(image as unknown as string | { url: string }),
+    ),
+  }));
+}
+
 export function getProductBySlug(
   slug: string,
-  source: Product[] = products,
+  source: Product[],
 ): Product | undefined {
   return source.find((product) => product.slug === slug);
 }
 
-/** Kept for the eventual real `GET /api/v1/products` response envelope. */
 export type { ProductsApiResponse };
 
 export async function fetchCollections(): Promise<Collection[]> {
-  await delay(120);
   return collections;
 }
 
 export async function fetchTestimonials(): Promise<Testimonial[]> {
-  await delay(120);
   return testimonials;
 }
 
@@ -48,6 +52,9 @@ export function formatPrice(value: number, currency = "EGP"): string {
     style: "currency",
     currency,
     minimumFractionDigits: 0,
-    maximumFractionDigits: value % 1 === 0 ? 0 : 2,
-  }).format(value);
+    maximumFractionDigits: 2,
+  }).format(value / 100);
+}
+export function imageUrl(image: string | { url: string }): string {
+  return typeof image === "string" ? image : image.url;
 }

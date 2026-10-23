@@ -5,6 +5,13 @@ import { getProductBySlug, formatPrice } from "@/services/api";
 import { SafeImage } from "@/components/motion/SafeImage";
 import { StarRating } from "@/components/StarRating";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Nav } from "@/features/landing/Nav";
@@ -109,6 +116,7 @@ export function ProductDetailsPage({
   if (!product)
     return (
       <NotFound
+        products={products}
         onCart={() => setCartOpen(true)}
         onWishlist={() => setWishlistOpen(true)}
       />
@@ -136,6 +144,7 @@ export function ProductDetailsPage({
         }}
         onCart={() => setCartOpen(true)}
         onWishlist={() => setWishlistOpen(true)}
+        products={products}
       />
       <main className="mx-auto max-w-6xl px-5 pt-8 pb-20 sm:px-6 lg:px-8">
         <nav
@@ -285,10 +294,33 @@ function ProductInfo({ product }: { product: Product }) {
   const { addItem, isWishlisted, toggleWishlist } = useCart();
   const { toast } = useToast();
   const [quantity, setQuantity] = useState(1);
+  const purchasableVariants = (product.variants ?? []).filter(
+    (variant) => variant.isActive,
+  );
+  const [variantId, setVariantId] = useState("");
+  const selectedVariant = purchasableVariants.find(
+    (variant) => variant.id === variantId,
+  );
+  const effectivePrice = selectedVariant?.price ?? product.price;
+  const effectiveStock = selectedVariant?.stock ?? product.stock;
   const wished = isWishlisted(product.id);
 
   const add = () => {
-    if (!addItem(product, quantity)) return;
+    if (purchasableVariants.length && !selectedVariant) {
+      toast(
+        "Choose an option",
+        "Select a product variant before adding it to your bag.",
+      );
+      return;
+    }
+    if (
+      !addItem(
+        { ...product, price: effectivePrice, stock: effectiveStock },
+        quantity,
+        selectedVariant?.id,
+      )
+    )
+      return;
     toast("Added to your bag", `${quantity} × ${product.name}`);
   };
 
@@ -330,7 +362,7 @@ function ProductInfo({ product }: { product: Product }) {
       </div>
       <div className="mt-6 flex items-baseline gap-3">
         <span className="tabular text-xl font-medium">
-          {formatPrice(product.price)}
+          {formatPrice(effectivePrice)}
         </span>
         {product.compareAtPrice && (
           <span className="tabular text-sm text-muted-foreground line-through">
@@ -341,14 +373,44 @@ function ProductInfo({ product }: { product: Product }) {
       <p
         className={cn(
           "mt-3 text-sm",
-          product.stock > 0 ? "text-clay" : "text-destructive",
+          effectiveStock > 0 ? "text-clay" : "text-destructive",
         )}
       >
-        {product.stock > 0 ? `${product.stock} in stock` : "Out of stock"}
+        {effectiveStock > 0 ? `${effectiveStock} in stock` : "Out of stock"}
       </p>
       <p className="mt-7 max-w-xl text-sm leading-7 text-muted-foreground">
         {product.description}
       </p>
+      {purchasableVariants.length > 0 && (
+        <label className="mt-7 block text-sm font-medium">
+          Choose an option
+          <Select
+            value={variantId || undefined}
+            onValueChange={(value) => {
+              setVariantId(value);
+              setQuantity(1);
+            }}
+          >
+            <SelectTrigger className="mt-2">
+              <SelectValue placeholder="Select an option" />
+            </SelectTrigger>
+            <SelectContent>
+              {purchasableVariants.map((variant) => (
+                <SelectItem
+                  key={variant.id}
+                  value={variant.id}
+                  disabled={variant.stock === 0}
+                  className={variant.stock === 0 ? "line-through" : undefined}
+                >
+                  {Object.values(variant.attributes).join(" / ") || variant.sku} —{" "}
+                  {formatPrice(variant.price)}{" "}
+                  {variant.stock ? `(${variant.stock} in stock)` : "(sold out)"}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </label>
+      )}
       <div className="mt-8 border-y border-border/70 py-6">
         <p className="eyebrow text-muted-foreground">Quantity</p>
         <div className="mt-3 flex items-center gap-4">
@@ -367,16 +429,16 @@ function ProductInfo({ product }: { product: Product }) {
               variant="ghost"
               size="icon"
               onClick={() =>
-                setQuantity((value) => Math.min(product.stock || 1, value + 1))
+                setQuantity((value) => Math.min(effectiveStock || 1, value + 1))
               }
-              disabled={quantity >= product.stock}
+              disabled={quantity >= effectiveStock}
               aria-label="Increase quantity"
             >
               <Plus className="size-3.5" />
             </Button>
           </div>
           <span className="tabular text-sm text-muted-foreground">
-            {formatPrice(product.price * quantity)}
+            {formatPrice(effectivePrice * quantity)}
           </span>
         </div>
       </div>
@@ -384,11 +446,14 @@ function ProductInfo({ product }: { product: Product }) {
         <Button
           size="lg"
           onClick={add}
-          disabled={product.stock === 0}
+          disabled={
+            effectiveStock === 0 ||
+            (purchasableVariants.length > 0 && !selectedVariant)
+          }
           className="h-12 rounded-full"
         >
           <ShoppingBag className="size-4" />
-          {product.stock ? "Add to bag" : "Out of stock"}
+          {effectiveStock ? "Add to bag" : "Out of stock"}
         </Button>
         <Button
           variant="outline"
@@ -596,9 +661,11 @@ function Stars({ value }: { value: number }) {
 function NotFound({
   onCart,
   onWishlist,
+  products,
 }: {
   onCart: () => void;
   onWishlist: () => void;
+  products: Product[];
 }) {
   return (
     <div className="min-h-screen bg-background">
@@ -608,6 +675,7 @@ function NotFound({
         }}
         onCart={onCart}
         onWishlist={onWishlist}
+        products={products}
       />
       <main className="mx-auto flex min-h-[65vh] max-w-6xl flex-col items-center justify-center px-6 text-center">
         <p className="eyebrow text-clay">404</p>

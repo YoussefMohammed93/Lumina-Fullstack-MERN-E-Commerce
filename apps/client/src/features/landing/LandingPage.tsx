@@ -12,7 +12,6 @@ import { Newsletter } from "./Newsletter";
 import { Footer } from "./Footer";
 import { CartDrawer } from "./CartDrawer";
 import { WishlistDrawer } from "./WishlistDrawer";
-import { SearchOverlay } from "./SearchOverlay";
 
 export function LandingPage({
   products,
@@ -25,12 +24,38 @@ export function LandingPage({
 }) {
   const [cartOpen, setCartOpen] = useState(false);
   const [wishlistOpen, setWishlistOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
 
   const featured = products[0];
   const bestSellers = [...products]
     .sort((a, b) => b.reviewCount - a.reviewCount)
     .slice(0, 6);
+
+  if (!featured) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Nav
+          onSearch={() => {}}
+          onCart={() => setCartOpen(true)}
+          onWishlist={() => setWishlistOpen(true)}
+          products={products}
+        />
+        <main className="mx-auto flex min-h-[65vh] max-w-3xl flex-col items-center justify-center px-6 text-center">
+          <p className="eyebrow text-clay">Catalog setup</p>
+          <h1 className="mt-4 font-serif text-5xl tracking-tight">
+            The collection is being prepared.
+          </h1>
+          <p className="mt-4 max-w-md text-sm leading-6 text-muted-foreground">
+            No active products are available yet. An administrator can add a
+            product from the catalog dashboard or seed the initial collection.
+          </p>
+          <a href="/admin/products" className="mt-7 rounded-full bg-foreground px-5 py-3 text-sm text-background">
+            Open product management
+          </a>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen overflow-x-clip bg-background">
@@ -48,9 +73,10 @@ export function LandingPage({
       </a>
 
       <Nav
-        onSearch={() => setSearchOpen(true)}
+        onSearch={() => {}}
         onCart={() => setCartOpen(true)}
         onWishlist={() => setWishlistOpen(true)}
+        products={products}
       />
 
       <main>
@@ -74,11 +100,6 @@ export function LandingPage({
       <WishlistDrawer
         open={wishlistOpen}
         onClose={() => setWishlistOpen(false)}
-        products={products}
-      />
-      <SearchOverlay
-        open={searchOpen}
-        onClose={() => setSearchOpen(false)}
         products={products}
       />
     </div>

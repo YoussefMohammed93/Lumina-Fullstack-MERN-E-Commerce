@@ -13,8 +13,10 @@ import {
 import { useScrolled } from "@/hooks/useScrolled";
 import { useScrollLock } from "@/hooks/useOverlay";
 import { useCart } from "@/features/cart/useCart";
+import type { Product } from "@/types/product";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/features/auth/useAuth";
+import { SearchOverlay } from "@/features/landing/SearchOverlay";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -83,15 +85,17 @@ function IconButton({
 
 export function Nav({
   onSearch,
-  onCart,
   onWishlist,
+  products,
 }: {
   onSearch: () => void;
   onCart: () => void;
   onWishlist: () => void;
+  products: Product[];
 }) {
   const scrolled = useScrolled(16);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const { totalQuantity, wishlist } = useCart();
   const { user, openAuth, logout } = useAuth();
   const mobileMenuRef = useRef<HTMLDivElement>(null);
@@ -190,7 +194,16 @@ export function Nav({
           </nav>
 
           <div className="ml-auto flex items-center gap-1">
-            <IconButton label="Search products" onClick={onSearch}>
+            <IconButton
+              label="Search products"
+              onClick={() => {
+                if (window.location.pathname === "/shop") {
+                  onSearch();
+                } else {
+                  setSearchOpen(true);
+                }
+              }}
+            >
               <Search className="size-[18px]" strokeWidth={1.25} />
             </IconButton>
             <IconButton
@@ -200,7 +213,7 @@ export function Nav({
             >
               <Heart className="size-[18px]" strokeWidth={1.25} />
             </IconButton>
-            <IconButton label="Open bag" onClick={onCart} count={totalQuantity}>
+            <IconButton label="Open bag" onClick={() => { window.location.href = "/cart"; }} count={totalQuantity}>
               <ShoppingBag className="size-[18px]" strokeWidth={1.25} />
             </IconButton>
             {user ? (
@@ -348,6 +361,11 @@ export function Nav({
           </div>
         </div>
       )}
+      <SearchOverlay
+        open={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        products={products}
+      />
     </>
   );
 }

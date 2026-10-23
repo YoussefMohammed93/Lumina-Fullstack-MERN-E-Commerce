@@ -20,7 +20,7 @@ export function AboutPage({ products }: { products: Product[] }) {
   return (
     <div className="min-h-screen overflow-x-clip bg-background">
       <div aria-hidden="true" className="grain-texture pointer-events-none fixed inset-0 z-[65] opacity-[0.025] mix-blend-multiply" />
-      <Nav onSearch={() => { window.location.href = "/shop"; }} onCart={() => setCartOpen(true)} onWishlist={() => setWishlistOpen(true)} />
+      <Nav onSearch={() => {}} onCart={() => setCartOpen(true)} onWishlist={() => setWishlistOpen(true)} products={products} />
       <main>
         <section className="mx-auto grid max-w-6xl gap-10 px-5 pt-14 pb-20 sm:px-6 lg:grid-cols-[.9fr_1.1fr] lg:items-end lg:px-8">
           <div className="max-w-xl lg:pb-10">

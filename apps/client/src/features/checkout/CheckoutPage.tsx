@@ -51,7 +51,11 @@ const governorates = [
   "Suez",
 ];
 type PaymentMethod = "stripe" | "cash_on_delivery";
-type CheckoutItem = { product: Product; quantity: number };
+type CheckoutItem = {
+  product: Product;
+  quantity: number;
+  variant: NonNullable<Product["variants"]>[number];
+};
 type AddressForm = {
   name: string;
   phone: string;
@@ -100,7 +104,12 @@ export function CheckoutPage({ products }: { products: Product[] }) {
     () =>
       lines.flatMap((line) => {
         const product = products.find((item) => item.id === line.productId);
-        return product ? [{ product, quantity: line.quantity }] : [];
+        const variant = product?.variants?.find(
+          (item) => item.id === line.variantId,
+        );
+        return product && variant
+          ? [{ product, variant, quantity: line.quantity }]
+          : [];
       }),
     [lines, products],
   );
@@ -426,8 +435,8 @@ function OrderSummary({
     <aside className="h-fit rounded-xl border border-border bg-card p-5 lg:sticky lg:top-6">
       <p className="eyebrow text-muted-foreground">Order summary</p>
       <ul className="mt-5 space-y-4">
-        {items.map(({ product, quantity }) => (
-          <li key={product.id} className="flex items-center gap-3">
+        {items.map(({ product, variant, quantity }) => (
+          <li key={`${product.id}-${variant.id}`} className="flex items-center gap-3">
             <img
               src={product.images[0]}
               alt=""
@@ -436,10 +445,13 @@ function OrderSummary({
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium">{product.name}</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                {product.category} · Quantity {quantity}
+                {product.category} · {Object.entries(variant.attributes)
+                  .filter(([, value]) => value)
+                  .map(([name, value]) => `${name}: ${value}`)
+                  .join(" · ") || variant.sku} · Quantity {quantity}
               </p>
               <p className="mt-1 text-sm font-medium">
-                {formatPrice(product.price * quantity)}
+                {formatPrice(variant.price * quantity)}
               </p>
             </div>
           </li>

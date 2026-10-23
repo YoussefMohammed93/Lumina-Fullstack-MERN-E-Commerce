@@ -95,9 +95,21 @@ export function CartDrawer({
                 (item) => item.id === line.productId,
               );
               if (!product) return null;
+              const variant = product.variants?.find(
+                (item) => item.id === line.variantId,
+              );
+              const optionSummary = variant
+                ? Object.entries(variant.attributes)
+                    .filter(([, value]) => value)
+                    .map(([name, value]) => `${name}: ${value}`)
+                    .join(" · ")
+                : "Selected option unavailable";
 
               return (
-                <li key={line.productId} className="flex gap-4 py-5 first:pt-0">
+                <li
+                  key={`${line.productId}-${line.variantId}`}
+                  className="flex gap-4 py-5 first:pt-0"
+                >
                   <div className="size-24 shrink-0 overflow-hidden rounded-xl bg-muted">
                     <SafeImage src={product.images[0]} alt={product.name} />
                   </div>
@@ -110,10 +122,13 @@ export function CartDrawer({
                         <p className="mt-1 font-serif text-lg leading-tight">
                           {product.name}
                         </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {optionSummary || variant?.sku}
+                        </p>
                       </div>
                       <button
                         type="button"
-                        onClick={() => removeItem(product.id)}
+                        onClick={() => removeItem(product.id, line.variantId)}
                         aria-label={`Remove ${product.name}`}
                         className="p-1 text-muted-foreground transition-colors duration-300 hover:text-destructive"
                       >
@@ -126,7 +141,11 @@ export function CartDrawer({
                         <button
                           type="button"
                           onClick={() =>
-                            setQuantity(product.id, line.quantity - 1)
+                            setQuantity(
+                              product.id,
+                              line.variantId,
+                              line.quantity - 1,
+                            )
                           }
                           aria-label="Decrease quantity"
                           className="flex size-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground"
@@ -139,7 +158,11 @@ export function CartDrawer({
                         <button
                           type="button"
                           onClick={() =>
-                            setQuantity(product.id, line.quantity + 1)
+                            setQuantity(
+                              product.id,
+                              line.variantId,
+                              line.quantity + 1,
+                            )
                           }
                           aria-label="Increase quantity"
                           className="flex size-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground"
@@ -148,7 +171,7 @@ export function CartDrawer({
                         </button>
                       </div>
                       <span className="tabular text-[13px] font-medium">
-                        {formatPrice(product.price * line.quantity)}
+                        {formatPrice((variant?.price ?? product.price) * line.quantity)}
                       </span>
                     </div>
                   </div>

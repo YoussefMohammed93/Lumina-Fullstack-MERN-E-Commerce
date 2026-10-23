@@ -1,6 +1,7 @@
 import { LogOut, PanelLeftClose, PanelLeftOpen, Store, X } from "lucide-react";
 import type { ComponentType } from "react";
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import {
   adminNavigation,
@@ -72,13 +73,14 @@ function SidebarLinks({
   const pathname = window.location.pathname;
   return (
     <>
-      <div className="mt-10 space-y-7">
+      <div className="mt-4 space-y-5">
         <NavigationGroup
           items={adminNavigation}
           pathname={pathname}
           collapsed={collapsed}
           onNavigate={onNavigate}
         />
+        <Separator className="bg-sidebar-border" />
         <NavigationGroup
           items={adminWorkspaceNavigation}
           pathname={pathname}
@@ -88,6 +90,7 @@ function SidebarLinks({
       </div>
 
       <div className="mt-auto space-y-3">
+        <Separator className="bg-sidebar-border" />
         <NavigationGroup
           items={adminSettingsNavigation}
           pathname={pathname}

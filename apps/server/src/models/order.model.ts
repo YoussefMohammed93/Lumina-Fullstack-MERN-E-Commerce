@@ -2,6 +2,9 @@ import { Schema, model, type Types } from "mongoose";
 
 export interface IOrderItem {
   productId: string;
+  variantId: string;
+  sku: string;
+  attributes: Record<string, string>;
   name: string;
   unitAmount: number;
   quantity: number;
@@ -45,7 +48,15 @@ const orderSchema = new Schema<IOrder>(
       index: true,
     },
     items: [
-      { productId: String, name: String, unitAmount: Number, quantity: Number },
+      {
+        productId: String,
+        variantId: String,
+        sku: String,
+        attributes: Schema.Types.Mixed,
+        name: String,
+        unitAmount: Number,
+        quantity: Number,
+      },
     ],
     currency: { type: String, default: "egp" },
     amountTotal: { type: Number, required: true },

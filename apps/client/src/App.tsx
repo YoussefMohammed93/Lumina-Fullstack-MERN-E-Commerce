@@ -20,6 +20,7 @@ import { AlertCircle, RefreshCw } from "lucide-react";
 import { AdminDashboard } from "@/features/admin/AdminDashboard";
 import { SettingsPage } from "@/features/auth/SettingsPage";
 import { InfoPage } from "@/features/info/InfoPage";
+import { CartPage, CartSkeleton } from "@/features/cart/CartPage";
 import {
   CheckoutPage,
   OrderConfirmation,
@@ -86,6 +87,7 @@ export function App() {
   }
 
   if (!data) {
+    if (window.location.pathname === "/cart") return <CartSkeleton />;
     if (window.location.pathname === "/shop") {
       return <ShopSkeleton />;
     }
@@ -121,6 +123,8 @@ export function App() {
             <AdminDashboard />
           ) : window.location.pathname === "/settings" ? (
             <SettingsPage />
+          ) : window.location.pathname === "/cart" ? (
+            <CartPage products={data.products} />
           ) : window.location.pathname === "/checkout" ? (
             <CheckoutPage products={data.products} />
           ) : window.location.pathname === "/checkout/success" ? (
