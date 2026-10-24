@@ -10,8 +10,10 @@ import { ProductTrashPage } from "@/features/admin/pages/ProductTrashPage";
 import { ProductRecycleBinPage } from "@/features/admin/pages/ProductRecycleBinPage";
 import { CustomersPage } from "@/features/admin/pages/CustomersPage";
 import { CategoriesPage } from "@/features/admin/pages/CategoriesPage";
+import { OrdersPage } from "@/features/admin/pages/OrdersPage";
+import type { Product } from "@/types/product";
 
-export function AdminDashboard() {
+export function AdminDashboard({ products }: { products: Product[] }) {
   const { user, loading, openAuth, logout } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -70,6 +72,8 @@ export function AdminDashboard() {
         <main className="mx-auto px-4 pt-25 pb-7 md:px-7 md:pt-27 md:pb-9">
           {page === "products" ? (
             <ProductsPage />
+          ) : page === "orders" ? (
+            <OrdersPage products={products} />
           ) : page === "categories" ? (
             <CategoriesPage />
           ) : page === "customers" ? (

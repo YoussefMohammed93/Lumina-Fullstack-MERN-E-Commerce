@@ -18,7 +18,15 @@ import {
 } from "@/features/products/ProductDetailsPage";
 import { AlertCircle, RefreshCw } from "lucide-react";
 import { AdminDashboard } from "@/features/admin/AdminDashboard";
-import { SettingsPage } from "@/features/auth/SettingsPage";
+import {
+  SettingsPage,
+  SettingsSkeleton,
+} from "@/features/auth/SettingsPage";
+import {
+  OrderTrackingPage,
+  OrderTrackingSkeleton,
+} from "@/features/orders/OrderTrackingPage";
+import { StorefrontLoadingLayout } from "@/components/StorefrontLayout";
 import { InfoPage } from "@/features/info/InfoPage";
 import { CartPage, CartSkeleton } from "@/features/cart/CartPage";
 import {
@@ -87,6 +95,20 @@ export function App() {
   }
 
   if (!data) {
+    if (window.location.pathname === "/settings") {
+      return (
+        <StorefrontLoadingLayout>
+          <SettingsSkeleton />
+        </StorefrontLoadingLayout>
+      );
+    }
+    if (window.location.pathname.startsWith("/orders/")) {
+      return (
+        <StorefrontLoadingLayout>
+          <OrderTrackingSkeleton />
+        </StorefrontLoadingLayout>
+      );
+    }
     if (window.location.pathname === "/cart") return <CartSkeleton />;
     if (window.location.pathname === "/shop") {
       return <ShopSkeleton />;
@@ -120,9 +142,20 @@ export function App() {
         <CartProvider products={data.products}>
           {window.location.pathname === "/admin" ||
           window.location.pathname.startsWith("/admin/") ? (
-            <AdminDashboard />
+            <AdminDashboard products={data.products} />
           ) : window.location.pathname === "/settings" ? (
-            <SettingsPage />
+            <SettingsPage
+              products={data.products}
+              categories={data.categories}
+            />
+          ) : window.location.pathname.startsWith("/orders/") ? (
+            <OrderTrackingPage
+              orderId={decodeURIComponent(
+                window.location.pathname.split("/").filter(Boolean).at(-1) ?? "",
+              )}
+              products={data.products}
+              categories={data.categories}
+            />
           ) : window.location.pathname === "/cart" ? (
             <CartPage products={data.products} />
           ) : window.location.pathname === "/checkout" ? (
