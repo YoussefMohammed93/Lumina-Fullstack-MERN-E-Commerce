@@ -712,18 +712,18 @@ export function ProductsPage() {
             </Button>
           </div>
           {view === "list" && visible.length > 0 && (
-            <div className="hidden grid-cols-[minmax(240px,1.7fr)_minmax(100px,.7fr)_minmax(130px,.8fr)_minmax(140px,.8fr)_auto] items-center gap-4 border-b bg-muted/25 px-5 py-3 text-xs font-medium text-muted-foreground md:grid">
-              <span>Product</span>
-              <span>Price</span>
-              <span>Stock</span>
-              <span>Statistics</span>
-              <span className="w-16 text-right">Actions</span>
+            <div className="products-table-header hidden items-center gap-3 border-b bg-muted/25 px-5 py-3 text-xs font-medium text-muted-foreground lg:grid">
+              <span className="products-cell-identity">Product</span>
+              <span className="products-cell-price">Price</span>
+              <span className="products-cell-stock">Stock</span>
+              <span className="products-cell-statistics">Statistics</span>
+              <span className="products-cell-actions">Actions</span>
             </div>
           )}
           <div
             className={
               view === "grid"
-                ? "grid grid-cols-1 gap-3 p-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+                ? "products-card-grid"
                 : "divide-y divide-border/70"
             }
           >
@@ -850,7 +850,7 @@ function ProductsPageSkeleton({ view }: { view: ProductView }) {
           <Card
             key={index}
             className="gap-3 rounded-md border-0 py-4 shadow-none ring-1 ring-foreground/8 sm:py-5"
-          >
+          > 
             <CardContent className="flex items-start justify-between gap-2 px-4 sm:px-5">
               <div className="space-y-3">
                 <Skeleton className="h-3 w-24" />
@@ -885,7 +885,7 @@ function ProductsPageSkeleton({ view }: { view: ProductView }) {
             <Skeleton className="h-8 w-20 sm:hidden" />
           </div>
           {view === "list" && (
-            <div className="hidden grid-cols-[minmax(240px,1.7fr)_minmax(100px,.7fr)_minmax(130px,.8fr)_minmax(140px,.8fr)_auto] gap-4 border-b bg-muted/25 px-5 py-3 md:grid">
+            <div className="products-table-header hidden gap-3 border-b bg-muted/25 px-5 py-3 lg:grid">
               {Array.from({ length: 5 }, (_, index) => (
                 <Skeleton key={index} className="h-3 w-16" />
               ))}
@@ -894,7 +894,7 @@ function ProductsPageSkeleton({ view }: { view: ProductView }) {
           <div
             className={
               view === "grid"
-                ? "grid grid-cols-1 gap-3 p-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+                ? "products-card-grid"
                 : "divide-y divide-border/70"
             }
           >
@@ -904,20 +904,34 @@ function ProductsPageSkeleton({ view }: { view: ProductView }) {
                 className={
                   view === "grid"
                     ? "space-y-4 rounded-md border p-4"
-                    : "flex items-center gap-4 p-4 sm:px-5"
+                    : "products-table-row items-center gap-x-3 gap-y-2 p-4 sm:px-5"
                 }
               >
-                <Skeleton className={view === "grid" ? "aspect-square w-full" : "size-14 shrink-0"} />
-                <div className="min-w-0 flex-1 space-y-2">
-                  <Skeleton className="h-4 w-2/3" />
-                  <Skeleton className="h-3 w-1/2" />
-                  <Skeleton className="h-3 w-1/3" />
-                </div>
-                {view === "list" && (
+                {view === "grid" ? (
                   <>
-                    <Skeleton className="hidden h-8 w-16 sm:block" />
-                    <Skeleton className="hidden h-8 w-24 md:block" />
-                    <Skeleton className="hidden h-8 w-20 md:block" />
+                    <Skeleton className="aspect-square w-full" />
+                    <div className="min-w-0 space-y-2">
+                      <Skeleton className="h-4 w-2/3" />
+                      <Skeleton className="h-3 w-1/2" />
+                      <Skeleton className="h-3 w-1/3" />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="products-cell-identity flex min-w-0 items-center gap-3">
+                      <Skeleton className="size-14 shrink-0" />
+                      <div className="min-w-0 flex-1 space-y-2">
+                        <Skeleton className="h-4 w-2/3" />
+                        <Skeleton className="h-3 w-1/2" />
+                        <Skeleton className="h-3 w-1/3" />
+                      </div>
+                    </div>
+                    <div className="products-cell-price space-y-2">
+                      <Skeleton className="h-4 w-16" />
+                    </div>
+                    <Skeleton className="products-cell-stock h-8 w-16" />
+                    <Skeleton className="products-cell-statistics h-8 w-24" />
+                    <Skeleton className="products-cell-actions h-8 w-20" />
                   </>
                 )}
               </div>
@@ -1004,8 +1018,8 @@ function ProductRow({
     ? Math.min(5, Math.max(0, product.rating))
     : 0;
   const statistics = (
-    <div className="min-w-0">
-      <p className="text-[11px] text-muted-foreground md:hidden">Statistics</p>
+    <div className="products-cell-statistics min-w-0">
+      <p className="text-[11px] text-muted-foreground lg:hidden">Statistics</p>
       <p className="mt-0.5 text-sm font-medium">
         {rating > 0 ? `${rating.toFixed(1)} / 5` : "No rating"}
       </p>
@@ -1112,7 +1126,7 @@ function ProductRow({
   );
 
   const identity = (
-    <div className="flex min-w-0 items-center gap-3">
+    <div className="products-cell-identity flex min-w-0 items-center gap-3">
       <div className="size-14 shrink-0 overflow-hidden rounded-md bg-muted sm:size-16">
         {product.images[0] ? (
           <img
@@ -1150,8 +1164,8 @@ function ProductRow({
   );
 
   const price = (
-    <div className="min-w-0">
-      <p className="text-[11px] text-muted-foreground md:hidden">Price</p>
+    <div className="products-cell-price min-w-0">
+      <p className="text-[11px] text-muted-foreground lg:hidden">Price</p>
       <p className="mt-0.5 truncate text-sm font-medium">
         {formatPrice(product.price)}
       </p>
@@ -1159,8 +1173,8 @@ function ProductRow({
   );
 
   const stock = (
-    <div className="min-w-0">
-      <p className="text-[11px] text-muted-foreground md:hidden">Stock</p>
+    <div className="products-cell-stock min-w-0">
+      <p className="text-[11px] text-muted-foreground lg:hidden">Stock</p>
       <p className={`mt-0.5 truncate text-sm font-medium ${stockTone}`}>
         {product.stock.toLocaleString()}
       </p>
@@ -1201,7 +1215,7 @@ function ProductRow({
               {product.variants.length === 1 ? "variant" : "variants"}
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-3 border-y py-3">
+          <div className="products-card-metrics grid grid-cols-2 gap-3 border-y py-3">
             {price}
             {stock}
           </div>
@@ -1212,12 +1226,12 @@ function ProductRow({
   }
 
   return (
-    <article className="grid grid-cols-1 gap-3 p-4 transition-colors hover:bg-muted/25 md:grid-cols-[minmax(240px,1.7fr)_minmax(100px,.7fr)_minmax(130px,.8fr)_minmax(140px,.8fr)_auto] md:items-center md:gap-4 md:px-5">
+    <article className="products-table-row items-center gap-x-3 gap-y-3 p-4 transition-colors hover:bg-muted/25 sm:px-5">
       {identity}
       {price}
       {stock}
       {statistics}
-      <div className="flex items-center justify-end border-t pt-2 md:border-0 md:pt-0">
+      <div className="products-cell-actions flex items-center justify-end pt-1 lg:pt-0">
         {actions}
       </div>
     </article>

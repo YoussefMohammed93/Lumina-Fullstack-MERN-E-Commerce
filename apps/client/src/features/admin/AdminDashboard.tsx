@@ -8,6 +8,7 @@ import { ResourcePage } from "@/features/admin/pages/ResourcePage";
 import { ProductsPage } from "@/features/admin/pages/ProductsPage";
 import { ProductTrashPage } from "@/features/admin/pages/ProductTrashPage";
 import { ProductRecycleBinPage } from "@/features/admin/pages/ProductRecycleBinPage";
+import { CustomersPage } from "@/features/admin/pages/CustomersPage";
 
 export function AdminDashboard() {
   const { user, loading, openAuth, logout } = useAuth();
@@ -68,6 +69,8 @@ export function AdminDashboard() {
         <main className="mx-auto px-4 pt-25 pb-7 md:px-7 md:pt-27 md:pb-9">
           {page === "products" ? (
             <ProductsPage />
+          ) : page === "customers" ? (
+            <CustomersPage />
           ) : page === "drafts" ? (
             <ProductTrashPage />
           ) : page === "trash" ? (

@@ -264,7 +264,183 @@
   }
 }
 
+
+/* ── Customers page ─────────────────────────────────────────────────── */
+
+.customers-toolbar {
+  display: flex !important;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .customers-toolbar {
+    flex-direction: row;
+    align-items: center;
+  }
+}
+
+.customers-table-header {
+  grid-template-columns: minmax(0, 3fr) minmax(76px, 1fr) minmax(64px, 0.75fr) minmax(110px, 1.3fr) minmax(72px, 1fr) 88px;
+  grid-template-areas: "customer status orders spend joined actions";
+}
+
+.customers-table-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "customer status"
+    "details actions";
+  align-items: center;
+}
+
+@media (min-width: 1024px) {
+  .customers-table-header,
+  .customers-table-row {
+    grid-template-columns: minmax(0, 3fr) minmax(76px, 1fr) minmax(64px, 0.75fr) minmax(110px, 1.3fr) minmax(72px, 1fr) 88px;
+    grid-template-areas: "customer status orders spend joined actions";
+    column-gap: 0.75rem;
+  }
+}
+
+.customers-cell-customer {
+  grid-area: customer;
+  min-width: 0;
+}
+
+.customers-cell-status {
+  grid-area: status;
+  justify-self: center;
+  text-align: center;
+}
+
+.customers-cell-orders {
+  grid-area: orders;
+  justify-self: center;
+  text-align: center;
+}
+
+.customers-cell-spend {
+  grid-area: spend;
+  justify-self: center;
+  text-align: center;
+}
+
+.customers-cell-joined {
+  grid-area: joined;
+  justify-self: center;
+  text-align: center;
+}
+
+.customers-mobile-details {
+  grid-area: details;
+}
+
+.customers-cell-actions {
+  grid-area: actions;
+  justify-self: center;
+}
+
+.customers-table-header .customers-cell-customer {
+  text-align: left;
+}
+
+.customers-table-header .customers-cell-actions {
+  width: auto;
+}
+
+.products-table-header {
+  grid-template-columns: minmax(0, 2.2fr) minmax(90px, 0.75fr) minmax(100px, 0.8fr) minmax(150px, 1fr) 136px;
+  grid-template-areas: "identity price stock statistics actions";
+}
+
+.products-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr));
+  gap: 0.75rem;
+  padding: 0.75rem;
+}
+
+.products-table-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-areas:
+    "identity identity"
+    "price stock"
+    "statistics statistics"
+    "actions actions";
+  align-items: center;
+}
+
+@media (min-width: 640px) {
+  .products-table-row {
+    grid-template-areas:
+      "identity identity"
+      "price stock"
+      "statistics actions";
+  }
+}
+
+@media (min-width: 1024px) {
+  .products-table-header,
+  .products-table-row {
+    grid-template-columns: minmax(0, 2.2fr) minmax(90px, 0.75fr) minmax(100px, 0.8fr) minmax(150px, 1fr) 136px;
+    grid-template-areas: "identity price stock statistics actions";
+    column-gap: 0.75rem;
+  }
+}
+
+.products-cell-identity {
+  grid-area: identity;
+}
+
+.products-cell-price {
+  grid-area: price;
+  text-align: center;
+}
+
+.products-cell-stock {
+  grid-area: stock;
+  text-align: center;
+}
+
+.products-cell-statistics {
+  grid-area: statistics;
+  text-align: center;
+}
+
+.products-cell-actions {
+  grid-area: actions;
+  justify-self: center;
+}
+
+.products-card-metrics .products-cell-price {
+  grid-area: auto;
+  text-align: left;
+}
+
+.products-card-metrics .products-cell-stock {
+  grid-area: auto;
+  text-align: right;
+}
+
+.products-table-header .products-cell-identity {
+  text-align: left;
+}
+
+.products-table-header .products-cell-price,
+.products-table-header .products-cell-stock,
+.products-table-header .products-cell-statistics,
+.products-table-header .products-cell-actions {
+  text-align: center;
+}
+
+.products-cell-statistics > div {
+  justify-content: center;
+}
+
 @media (prefers-reduced-motion: reduce) {
+
   html {
     scroll-behavior: auto;
   }

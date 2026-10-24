@@ -1,7 +1,9 @@
 import { Router } from "express";
 import { createHash } from "node:crypto";
 import { Category } from "../models/category.model.js";
+import { Order } from "../models/order.model.js";
 import { Product } from "../models/product.model.js";
+import { User } from "../models/user.model.js";
 import {
   requireAuth,
   requireCsrf,
@@ -345,6 +347,162 @@ router.post("/categories", requireCsrf, async (req, res, next) => {
     res.status(201).json({
       success: true,
       data: { ...category.toObject(), id: String(category._id) },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// ── Customer management ────────────────────────────────────────────────
+
+router.get("/customers", async (req, res, next) => {
+  try {
+    const users = await User.find().sort({ createdAt: -1 }).lean();
+
+    // Aggregate order counts and totals per user in a single query
+    const orderStats = await Order.aggregate([
+      {
+        $group: {
+          _id: "$userId",
+          orderCount: { $sum: 1 },
+          totalSpent: { $sum: "$amountTotal" },
+        },
+      },
+    ]);
+    const statsMap = new Map(
+      orderStats.map((s) => [String(s._id), s]),
+    );
+
+    // Compute stats
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    let active = 0;
+    let disabled = 0;
+    let newThisMonth = 0;
+
+    const customers = users.map((user) => {
+      if (user.status === "disabled") disabled++;
+      else active++;
+
+      const created = new Date((user as any).createdAt);
+      if (created >= startOfMonth) newThisMonth++;
+
+      const stats = statsMap.get(String(user._id));
+      return {
+        id: String(user._id),
+        username: user.username,
+        name: user.name || undefined,
+        email: user.email,
+        avatarUrl: user.avatarUrl || undefined,
+        role: user.role,
+        status: user.status,
+        createdAt: (user as any).createdAt,
+        orderCount: stats?.orderCount ?? 0,
+        totalSpent: stats?.totalSpent ?? 0,
+      };
+    });
+
+    res.json({
+      success: true,
+      data: {
+        customers,
+        stats: {
+          total: users.length,
+          active,
+          disabled,
+          newThisMonth,
+        },
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/customers/:id", async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.id).lean();
+    if (!user)
+      return res
+        .status(404)
+        .json({ success: false, error: { message: "Customer not found." } });
+
+    const orders = await Order.find({ userId: user._id })
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .lean();
+
+    const orderCount = await Order.countDocuments({ userId: user._id });
+    const totalSpentAgg = await Order.aggregate([
+      { $match: { userId: user._id } },
+      { $group: { _id: null, total: { $sum: "$amountTotal" } } },
+    ]);
+    const totalSpent = totalSpentAgg[0]?.total ?? 0;
+
+    res.json({
+      success: true,
+      data: {
+        customer: {
+          id: String(user._id),
+          username: user.username,
+          name: user.name || undefined,
+          email: user.email,
+          avatarUrl: user.avatarUrl || undefined,
+          role: user.role,
+          status: user.status,
+          createdAt: (user as any).createdAt,
+          orderCount,
+          totalSpent,
+        },
+        orders: orders.map((order) => ({
+          id: String(order._id),
+          items: order.items,
+          amountTotal: order.amountTotal,
+          currency: order.currency,
+          paymentMethod: order.paymentMethod,
+          paymentStatus: order.paymentStatus,
+          fulfillmentStatus: order.fulfillmentStatus,
+          createdAt: (order as any).createdAt,
+        })),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.patch("/customers/:id/status", requireCsrf, async (req, res, next) => {
+  try {
+    const status = req.body?.status;
+    if (!["active", "disabled"].includes(status))
+      return res.status(400).json({
+        success: false,
+        error: { message: "Status must be 'active' or 'disabled'." },
+      });
+
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { $set: { status } },
+      { new: true, runValidators: true },
+    ).lean();
+
+    if (!user)
+      return res
+        .status(404)
+        .json({ success: false, error: { message: "Customer not found." } });
+
+    res.json({
+      success: true,
+      data: {
+        id: String(user._id),
+        username: user.username,
+        name: user.name || undefined,
+        email: user.email,
+        avatarUrl: user.avatarUrl || undefined,
+        role: user.role,
+        status: user.status,
+        createdAt: (user as any).createdAt,
+      },
     });
   } catch (error) {
     next(error);
