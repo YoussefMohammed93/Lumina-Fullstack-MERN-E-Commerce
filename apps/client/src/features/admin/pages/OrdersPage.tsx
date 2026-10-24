@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowDownUp,
   ChevronLeft,
@@ -36,6 +36,8 @@ import type { Product } from "@/types/product";
 import { SafeImage } from "@/components/motion/SafeImage";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/features/toast/ToastProvider";
+import { apiRequest, authenticatedRequest } from "@/features/auth/auth-client";
+import { useAuth } from "@/features/auth/useAuth";
 
 const ORDER_STATUSES = [
   "Order Placed",
@@ -44,153 +46,136 @@ const ORDER_STATUSES = [
   "Shipped",
   "Out for Delivery",
   "Delivered",
+  "Cancelled",
 ] as const;
 
 type OrderStatus = (typeof ORDER_STATUSES)[number];
 type StatusFilter = "All orders" | OrderStatus;
 const PAGE_SIZE = 5;
+type ApiOrderStatus =
+  | "placed"
+  | "confirmed"
+  | "processing"
+  | "shipped"
+  | "out_for_delivery"
+  | "delivered"
+  | "cancelled";
 
 interface AdminOrder {
   id: string;
+  orderNumber: string;
   customer: string;
   email: string;
   placedAt: string;
   status: OrderStatus;
-  paymentStatus: "Paid" | "Awaiting payment" | "Collected";
+  paymentStatus:
+    | "Paid"
+    | "Awaiting payment"
+    | "Pending"
+    | "Failed"
+    | "Collected";
   paymentMethod: string;
-  items: { name: string; variant: string; quantity: number; amount: number }[];
+  items: {
+    productId: string;
+    variantId: string;
+    name: string;
+    variant: string;
+    quantity: number;
+    amount: number;
+  }[];
   total: number;
   address: string[];
 }
 
-const INITIAL_ORDERS: AdminOrder[] = [
-  {
-    id: "LM-2048",
-    customer: "Mariam Abdelrahman",
-    email: "mariam.a@example.com",
-    placedAt: "2026-10-24T10:42:00",
-    status: "Out for Delivery",
-    paymentStatus: "Paid",
-    paymentMethod: "Visa ending in 4242",
-    items: [
-      {
-        name: "Sculpted Ceramic Vase",
-        variant: "Warm ivory · Medium",
-        quantity: 1,
-        amount: 84500,
-      },
-      {
-        name: "Linen Cushion Cover",
-        variant: "Natural flax · 50 × 50 cm",
-        quantity: 2,
-        amount: 32500,
-      },
-    ],
-    total: 149500,
-    address: ["18 Road 9, Maadi", "Cairo, Egypt"],
-  },
-  {
-    id: "LM-2047",
-    customer: "Omar Khaled",
-    email: "omar.k@example.com",
-    placedAt: "2026-10-24T09:18:00",
-    status: "Processing",
-    paymentStatus: "Awaiting payment",
-    paymentMethod: "Cash on delivery",
-    items: [
-      {
-        name: "Ribbed Glass Carafe",
-        variant: "Smoke grey · 1.2 L",
-        quantity: 1,
-        amount: 42000,
-      },
-    ],
-    total: 47000,
-    address: ["6 El-Montaza Street", "Alexandria, Egypt"],
-  },
-  {
-    id: "LM-2046",
-    customer: "Nour Samir",
-    email: "nour.s@example.com",
-    placedAt: "2026-10-23T16:30:00",
-    status: "Confirmed",
-    paymentStatus: "Paid",
-    paymentMethod: "Mastercard ending in 1088",
-    items: [
-      {
-        name: "Handwoven Table Runner",
-        variant: "Oatmeal · 180 cm",
-        quantity: 1,
-        amount: 59000,
-      },
-      {
-        name: "Linen Napkin Set",
-        variant: "Natural flax · Set of 4",
-        quantity: 1,
-        amount: 28500,
-      },
-    ],
-    total: 87500,
-    address: ["12 Zamalek", "Cairo, Egypt"],
-  },
-  {
-    id: "LM-2045",
-    customer: "Youssef Mahmoud",
-    email: "youssef.m@example.com",
-    placedAt: "2026-10-23T11:05:00",
-    status: "Shipped",
-    paymentStatus: "Paid",
-    paymentMethod: "Visa ending in 8210",
-    items: [
-      {
-        name: "Oak Catchall Tray",
-        variant: "Natural oak · Large",
-        quantity: 2,
-        amount: 37500,
-      },
-    ],
-    total: 75000,
-    address: ["21 El-Gomhoreya Street", "Mansoura, Egypt"],
-  },
-  {
-    id: "LM-2044",
-    customer: "Laila Hassan",
-    email: "laila.h@example.com",
-    placedAt: "2026-10-22T13:50:00",
-    status: "Delivered",
-    paymentStatus: "Collected",
-    paymentMethod: "Cash on delivery",
-    items: [
-      {
-        name: "Sculpted Ceramic Vase",
-        variant: "Warm ivory · Small",
-        quantity: 1,
-        amount: 62000,
-      },
-    ],
-    total: 67000,
-    address: ["9 Sporting", "Alexandria, Egypt"],
-  },
-  {
-    id: "LM-2043",
-    customer: "Adam Fathy",
-    email: "adam.f@example.com",
-    placedAt: "2026-10-21T08:22:00",
-    status: "Order Placed",
-    paymentStatus: "Paid",
-    paymentMethod: "Visa ending in 3306",
-    items: [
-      {
-        name: "Linen Cushion Cover",
-        variant: "Olive · 50 × 50 cm",
-        quantity: 2,
-        amount: 32500,
-      },
-    ],
-    total: 65000,
-    address: ["3 Degla Square, Maadi", "Cairo, Egypt"],
-  },
-];
+interface OrdersApiOrder {
+  id: string;
+  orderNumber: string;
+  customer: string;
+  email: string;
+  placedAt: string;
+  status: ApiOrderStatus;
+  paymentStatus: "paid" | "awaiting_payment" | "pending" | "failed";
+  paymentMethod: "stripe" | "cash_on_delivery";
+  items: {
+    productId: string;
+    variantId: string;
+    name: string;
+    variant: string;
+    quantity: number;
+    amount: number;
+  }[];
+  total: number;
+  address: string[];
+}
+
+interface OrdersApiResponse {
+  orders: OrdersApiOrder[];
+  pagination: { page: number; limit: number; total: number; pageCount: number };
+  stats: { total: number; paidRevenue: number; toFulfill: number; inTransit: number };
+}
+
+const API_STATUS: Record<OrderStatus, ApiOrderStatus> = {
+  "Order Placed": "placed",
+  Confirmed: "confirmed",
+  Processing: "processing",
+  Shipped: "shipped",
+  "Out for Delivery": "out_for_delivery",
+  Delivered: "delivered",
+  Cancelled: "cancelled",
+};
+
+const DISPLAY_STATUS: Record<ApiOrderStatus, OrderStatus> = {
+  placed: "Order Placed",
+  confirmed: "Confirmed",
+  processing: "Processing",
+  shipped: "Shipped",
+  out_for_delivery: "Out for Delivery",
+  delivered: "Delivered",
+  cancelled: "Cancelled",
+};
+
+function presentAdminOrder(
+  order: OrdersApiOrder,
+  products: Product[],
+): AdminOrder {
+  const matchesPreviouslyScaledPrices = order.items.every((item) => {
+    const product = products.find(
+      (candidate) => candidate.id === item.productId,
+    );
+    const variant = product?.variants?.find(
+      (candidate) => candidate.id === item.variantId,
+    );
+    return variant && item.amount === variant.price * 100;
+  });
+  const itemTotal = order.items.reduce(
+    (total, item) => total + item.amount * item.quantity,
+    0,
+  );
+  const legacyScale =
+    matchesPreviouslyScaledPrices && order.total === itemTotal ? 100 : 1;
+
+  return {
+    ...order,
+    total: order.total / legacyScale,
+    items: order.items.map((item) => ({
+      ...item,
+      amount: item.amount / legacyScale,
+    })),
+    status: DISPLAY_STATUS[order.status],
+    paymentStatus:
+      order.paymentStatus === "paid"
+        ? "Paid"
+        : order.paymentStatus === "awaiting_payment"
+          ? "Awaiting payment"
+          : order.paymentStatus === "failed"
+            ? "Failed"
+            : "Pending",
+    paymentMethod:
+      order.paymentMethod === "cash_on_delivery"
+        ? "Cash on delivery"
+        : "Card payment",
+  };
+}
 
 const statusTone: Record<OrderStatus, string> = {
   "Order Placed": "border-slate-200 bg-slate-100 text-slate-700",
@@ -199,6 +184,7 @@ const statusTone: Record<OrderStatus, string> = {
   Shipped: "border-violet-200 bg-violet-50 text-violet-700",
   "Out for Delivery": "border-orange-200 bg-orange-50 text-orange-800",
   Delivered: "border-emerald-200 bg-emerald-50 text-emerald-800",
+  Cancelled: "border-rose-200 bg-rose-50 text-rose-800",
 };
 
 function formatOrderDate(value: string) {
@@ -267,7 +253,7 @@ function OrderDetailDialog({
           <DialogHeader className="border-b border-border pb-4">
             <p className="eyebrow text-clay">Order details</p>
             <DialogTitle className="flex flex-wrap items-center gap-3 pr-8 text-xl font-sans">
-              #{order.id}
+              #{order.orderNumber}
               <OrderStatusBadge status={order.status} />
             </DialogTitle>
             <p className="text-xs text-muted-foreground">
@@ -320,10 +306,6 @@ function OrderDetailDialog({
               </span>
             </div>
           </section>
-          <p className="rounded-md bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-800">
-            Demo order — updates are held in this page only and are not saved to
-            the backend.
-          </p>
         </DialogContent>
       )}
     </Dialog>
@@ -457,77 +439,119 @@ function OrdersPageSkeleton() {
 
 export function OrdersPage({ products }: { products: Product[] }) {
   const { toast } = useToast();
-  const [orders, setOrders] = useState(INITIAL_ORDERS);
+  const { csrfToken } = useAuth();
+  const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<StatusFilter>("All orders");
   const [page, setPage] = useState(1);
   const [sortNewestFirst, setSortNewestFirst] = useState(true);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [total, setTotal] = useState(0);
+  const [pageCount, setPageCount] = useState(1);
+  const [stats, setStats] = useState<OrdersApiResponse["stats"]>({
+    total: 0,
+    paidRevenue: 0,
+    toFulfill: 0,
+    inTransit: 0,
+  });
+  const [reloadVersion, setReloadVersion] = useState(0);
+  const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setLoading(false), 400);
-    return () => window.clearTimeout(timer);
-  }, []);
+    let cancelled = false;
+    const params = new URLSearchParams({
+      page: String(page),
+      limit: String(PAGE_SIZE),
+      sort: sortNewestFirst ? "newest" : "oldest",
+    });
+    const search = query.trim();
+    if (search) params.set("search", search);
+    if (filter !== "All orders") params.set("status", API_STATUS[filter]);
 
-  const visibleOrders = useMemo(() => {
-    const search = query.trim().toLowerCase();
-    return orders
-      .filter((order) => filter === "All orders" || order.status === filter)
-      .filter(
-        (order) =>
-          !search ||
-          [order.id, order.customer, order.email].some((value) =>
-            value.toLowerCase().includes(search),
-          ),
-      )
-      .sort((a, b) =>
-        sortNewestFirst
-          ? b.placedAt.localeCompare(a.placedAt)
-          : a.placedAt.localeCompare(b.placedAt),
-      );
-  }, [filter, orders, query, sortNewestFirst]);
+    void apiRequest<OrdersApiResponse>(`/admin/orders?${params.toString()}`)
+      .then((response) => {
+        if (cancelled) return;
+        setOrders(
+          response.orders.map((order) => presentAdminOrder(order, products)),
+        );
+        setTotal(response.pagination.total);
+        setPageCount(Math.max(1, response.pagination.pageCount));
+        setStats(response.stats);
+        if (page > Math.max(1, response.pagination.pageCount))
+          setPage(Math.max(1, response.pagination.pageCount));
+      })
+      .catch((loadError: unknown) => {
+        if (!cancelled)
+          setError(
+            loadError instanceof Error
+              ? loadError.message
+              : "Unable to load orders.",
+          );
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
 
-  const pageCount = Math.max(1, Math.ceil(visibleOrders.length / PAGE_SIZE));
+    return () => {
+      cancelled = true;
+    };
+  }, [filter, page, products, query, reloadVersion, sortNewestFirst]);
+
   const currentPage = Math.min(page, pageCount);
-  const pageOrders = visibleOrders.slice(
-    (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE,
+  const firstVisibleOrder = total ? (currentPage - 1) * PAGE_SIZE + 1 : 0;
+  const lastVisibleOrder = Math.min(currentPage * PAGE_SIZE, total);
+  const pageWindowStart = Math.max(
+    1,
+    Math.min(currentPage - 2, pageCount - 4),
   );
-  const firstVisibleOrder = visibleOrders.length
-    ? (currentPage - 1) * PAGE_SIZE + 1
-    : 0;
-  const lastVisibleOrder = Math.min(
-    currentPage * PAGE_SIZE,
-    visibleOrders.length,
+  const pageNumbers = Array.from(
+    { length: Math.min(pageCount, 5) },
+    (_, index) => pageWindowStart + index,
   );
 
   const selectedOrder =
     orders.find((order) => order.id === selectedOrderId) ?? null;
-  const toFulfill = orders.filter(
-    (order) =>
-      order.status !== "Delivered" && order.status !== "Out for Delivery",
-  ).length;
-  const inTransit = orders.filter(
-    (order) =>
-      order.status === "Shipped" || order.status === "Out for Delivery",
-  ).length;
-  const paidRevenue = orders
-    .filter((order) => order.paymentStatus !== "Awaiting payment")
-    .reduce((sum, order) => sum + order.total, 0);
 
-  function updateStatus(orderId: string, status: OrderStatus) {
+  async function updateStatus(orderId: string, status: OrderStatus) {
     const order = orders.find((current) => current.id === orderId);
     if (!order || order.status === status) return;
+    if (!csrfToken) {
+      setError("Your session has expired. Sign in again before updating orders.");
+      return;
+    }
 
-    setOrders((current) =>
-      current.map((currentOrder) =>
-        currentOrder.id === orderId
-          ? { ...currentOrder, status }
-          : currentOrder,
-      ),
-    );
-    toast("Fulfillment status updated", `#${orderId} is now ${status}.`);
+    setUpdatingOrderId(orderId);
+    setError(null);
+    try {
+      const result = await authenticatedRequest<{
+        status: ApiOrderStatus;
+        changed: boolean;
+      }>(`/admin/orders/${encodeURIComponent(orderId)}/status`, csrfToken, {
+        method: "PATCH",
+        body: JSON.stringify({ status: API_STATUS[status] }),
+      });
+      setOrders((current) =>
+        current.map((currentOrder) =>
+          currentOrder.id === orderId
+            ? { ...currentOrder, status: DISPLAY_STATUS[result.status] }
+            : currentOrder,
+        ),
+      );
+      if (result.changed) {
+        toast("Fulfillment status updated", `#${order.orderNumber} is now ${status}.`);
+        setReloadVersion((version) => version + 1);
+      }
+    } catch (updateError) {
+      setError(
+        updateError instanceof Error
+          ? updateError.message
+          : "Unable to update fulfillment status.",
+      );
+    } finally {
+      setUpdatingOrderId(null);
+    }
   }
 
   if (loading) return <OrdersPageSkeleton />;
@@ -537,16 +561,15 @@ export function OrdersPage({ products }: { products: Product[] }) {
       <PageHeader
         title="Orders"
         description="Review customer purchases, keep fulfillment moving, and update each delivery as it progresses."
-        action={
-          <Badge
-            variant="outline"
-            className="h-8 w-fit gap-2 rounded-md border-amber-200 bg-amber-50 px-3 text-[11px] font-medium text-amber-800"
-          >
-            <span className="size-1.5 rounded-full bg-amber-500" />
-            Demo data · Not saved
-          </Badge>
-        }
       />
+      {error && (
+        <p
+          role="alert"
+          className="rounded-md border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive"
+        >
+          {error}
+        </p>
+      )}
 
       <section
         aria-label="Order overview"
@@ -554,29 +577,29 @@ export function OrdersPage({ products }: { products: Product[] }) {
       >
         <SummaryCard
           label="Total orders"
-          value={orders.length}
-          detail="In this sample view"
+          value={stats.total}
+          detail="Across all customer orders"
           icon={ShoppingBag}
           tone="bg-blue-500/10 text-blue-700"
         />
         <SummaryCard
           label="To fulfill"
-          value={toFulfill}
+          value={stats.toFulfill}
           detail="Need a fulfillment step"
           icon={PackageCheck}
           tone="bg-amber-500/10 text-amber-700"
         />
         <SummaryCard
           label="In transit"
-          value={inTransit}
+          value={stats.inTransit}
           detail="On the way to customers"
           icon={Truck}
           tone="bg-violet-500/10 text-violet-700"
         />
         <SummaryCard
           label="Paid revenue"
-          value={formatPrice(paidRevenue)}
-          detail="From listed sample orders"
+          value={formatPrice(stats.paidRevenue)}
+          detail="From paid orders"
           icon={CircleDollarSign}
           tone="bg-emerald-500/10 text-emerald-700"
         />
@@ -593,6 +616,9 @@ export function OrdersPage({ products }: { products: Product[] }) {
                 aria-label="Search orders"
                 value={query}
                 onChange={(event) => {
+                  setLoading(true);
+                  setError(null);
+                  setOrders([]);
                   setQuery(event.target.value);
                   setPage(1);
                 }}
@@ -602,7 +628,12 @@ export function OrdersPage({ products }: { products: Product[] }) {
               type="button"
               variant="outline"
               className="h-10 justify-start rounded-md sm:w-44"
-              onClick={() => setSortNewestFirst((value) => !value)}
+              onClick={() => {
+                setLoading(true);
+                setError(null);
+                setOrders([]);
+                setSortNewestFirst((value) => !value);
+              }}
             >
               <ArrowDownUp className="size-4" />
               {sortNewestFirst ? "Newest first" : "Oldest first"}
@@ -611,15 +642,16 @@ export function OrdersPage({ products }: { products: Product[] }) {
 
           <div className="flex flex-col justify-between gap-3 border-t border-border pt-4 sm:flex-row sm:items-center">
             <p className="text-xs text-muted-foreground">
-              Showing{" "}
-              <span className="font-medium text-foreground">
-                {visibleOrders.length}
-              </span>{" "}
-              {visibleOrders.length === 1 ? "order" : "orders"}
+              {total
+                ? `Showing ${firstVisibleOrder}–${lastVisibleOrder} of ${total} orders`
+                : "No orders match the current filters"}
             </p>
             <Select
               value={filter}
               onValueChange={(value) => {
+                setLoading(true);
+                setError(null);
+                setOrders([]);
                 setFilter(value as StatusFilter);
                 setPage(1);
               }}
@@ -658,12 +690,6 @@ export function OrdersPage({ products }: { products: Product[] }) {
                 Select a status to update fulfillment manually.
               </p>
             </div>
-            <Badge
-              variant="secondary"
-              className="rounded-md px-2.5 text-[10px] font-medium uppercase tracking-[0.12em]"
-            >
-              Frontend preview
-            </Badge>
           </div>
 
           <div className="hidden grid-cols-[1.1fr_1.4fr_1fr_1fr_1.15fr_1.1fr_auto] items-center gap-3 border-b bg-muted/25 px-5 py-3 text-xs font-medium text-muted-foreground xl:grid">
@@ -676,9 +702,9 @@ export function OrdersPage({ products }: { products: Product[] }) {
             <span />
           </div>
 
-          {pageOrders.length ? (
+          {orders.length ? (
             <ul className="divide-y divide-border/70">
-              {pageOrders.map((order) => (
+              {orders.map((order) => (
                 <li
                   key={order.id}
                   className="grid gap-4 px-4 py-4 transition-colors hover:bg-muted/20 sm:px-5 xl:grid-cols-[1.1fr_1.4fr_1fr_1fr_1.15fr_1.1fr_auto] xl:items-center xl:gap-3"
@@ -690,7 +716,7 @@ export function OrdersPage({ products }: { products: Product[] }) {
                         onClick={() => setSelectedOrderId(order.id)}
                         className="text-sm font-semibold text-foreground underline-offset-4 hover:text-clay hover:underline"
                       >
-                        #{order.id}
+                        #{order.orderNumber}
                       </button>
                       <p className="mt-1 text-xs text-muted-foreground">
                         {order.items.reduce(
@@ -785,12 +811,13 @@ export function OrdersPage({ products }: { products: Product[] }) {
                     <Select
                       value={order.status}
                       onValueChange={(value) =>
-                        updateStatus(order.id, value as OrderStatus)
+                        void updateStatus(order.id, value as OrderStatus)
                       }
                     >
                       <SelectTrigger
                         className="h-9 w-full rounded-md bg-background px-2.5 text-xs xl:min-w-40"
                         aria-label={`Update status for order ${order.id}`}
+                        disabled={updatingOrderId === order.id}
                       >
                         <SelectValue />
                       </SelectTrigger>
@@ -824,9 +851,13 @@ export function OrdersPage({ products }: { products: Product[] }) {
           ) : (
             <div className="flex min-h-56 flex-col items-center justify-center px-5 py-10 text-center">
               <Clock3 className="size-7 text-muted-foreground" strokeWidth={1.5} />
-              <p className="mt-3 font-medium">No matching orders</p>
+              <p className="mt-3 font-medium">
+                {error ? "Orders could not be loaded" : "No matching orders"}
+              </p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Try another search term or fulfillment status.
+                {error
+                  ? "Try refreshing the page. If the problem continues, contact support."
+                  : "Try another search term or fulfillment status."}
               </p>
             </div>
           )}
@@ -834,14 +865,14 @@ export function OrdersPage({ products }: { products: Product[] }) {
           <div className="flex items-center justify-between gap-4 border-t bg-muted/15 px-4 py-3 text-xs text-muted-foreground sm:px-5">
             <span>
               Showing {firstVisibleOrder}–{lastVisibleOrder} of{" "}
-              {visibleOrders.length} matching orders
+              {total} matching orders
             </span>
             <span className="inline-flex items-center gap-1.5">
               <Check className="size-3.5 text-emerald-700" />
-              Status changes stay in this session
+              Fulfillment updates are saved
             </span>
           </div>
-          {visibleOrders.length > PAGE_SIZE && (
+          {total > PAGE_SIZE && (
             <nav
               aria-label="Order pages"
               className="flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 sm:px-5"
@@ -855,40 +886,49 @@ export function OrdersPage({ products }: { products: Product[] }) {
                   variant="outline"
                   size="sm"
                   className="h-8 gap-1 rounded-md px-2.5"
-                  disabled={currentPage === 1}
-                  onClick={() => setPage((value) => Math.max(1, value - 1))}
+                  disabled={loading || currentPage === 1}
+                  onClick={() => {
+                    setLoading(true);
+                    setOrders([]);
+                    setPage((value) => Math.max(1, value - 1));
+                  }}
                   aria-label="Previous page"
                 >
                   <ChevronLeft className="size-4" />
                   <span className="hidden sm:inline">Previous</span>
                 </Button>
-                {Array.from({ length: pageCount }, (_, index) => index + 1).map(
-                  (pageNumber) => (
+                {                pageNumbers.map((pageNumber) => (
                     <Button
                       key={pageNumber}
                       type="button"
                       variant={pageNumber === currentPage ? "default" : "ghost"}
                       size="sm"
                       className="size-8 rounded-md p-0"
+                      disabled={loading}
                       aria-label={`Page ${pageNumber}`}
                       aria-current={
                         pageNumber === currentPage ? "page" : undefined
                       }
-                      onClick={() => setPage(pageNumber)}
+                      onClick={() => {
+                        setLoading(true);
+                        setOrders([]);
+                        setPage(pageNumber);
+                      }}
                     >
                       {pageNumber}
                     </Button>
-                  ),
-                )}
+                  ))}
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   className="h-8 gap-1 rounded-md px-2.5"
-                  disabled={currentPage === pageCount}
-                  onClick={() =>
-                    setPage((value) => Math.min(pageCount, value + 1))
-                  }
+                  disabled={loading || currentPage === pageCount}
+                  onClick={() => {
+                    setLoading(true);
+                    setOrders([]);
+                    setPage((value) => Math.min(pageCount, value + 1));
+                  }}
                   aria-label="Next page"
                 >
                   <span className="hidden sm:inline">Next</span>

@@ -15,12 +15,29 @@ import type { Product } from "@/types/product";
 
 export function AdminDashboard({ products }: { products: Product[] }) {
   const { user, loading, openAuth, logout } = useAuth();
+  const [paidRevenue, setPaidRevenue] = useState<number | null>(null);
+  const [revenueError, setRevenueError] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   useEffect(() => {
-    if (user?.role === "admin")
-      apiRequest("/admin/dashboard/overview").catch(() => undefined);
+    if (user?.role !== "admin") return;
+    let cancelled = false;
+    void apiRequest<{ paidRevenue: number }>("/admin/dashboard/overview")
+      .then(({ paidRevenue: amount }) => {
+        if (!cancelled) setPaidRevenue(amount);
+      })
+      .catch((error: unknown) => {
+        if (!cancelled)
+          setRevenueError(
+            error instanceof Error
+              ? error.message
+              : "Unable to load paid revenue.",
+          );
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [user?.role]);
 
   if (loading) return null;
@@ -85,7 +102,11 @@ export function AdminDashboard({ products }: { products: Product[] }) {
           ) : page ? (
             <ResourcePage page={page} />
           ) : (
-            <DashboardPage userName={user.name || user.username} />
+            <DashboardPage
+              userName={user.name || user.username}
+              paidRevenue={paidRevenue}
+              revenueError={revenueError}
+            />
           )}
         </main>
       </div>

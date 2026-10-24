@@ -3,6 +3,8 @@ import type Stripe from "stripe";
 import { Order } from "../models/order.model.js";
 import { Cart } from "../models/commerce.model.js";
 import { getStripe } from "../lib/stripe.js";
+import { inventoryForOrderItems, restoreInventory } from "../lib/inventory.js";
+import { stripeShippingAddress } from "../lib/orders.js";
 
 const router = Router();
 
@@ -45,24 +47,14 @@ router.post("/", async (req, res) => {
       );
       if (session.payment_status === "paid") {
         const metadata = session.metadata ?? {};
-        const shippingDetails = session.collected_information?.shipping_details;
+        const shippingAddress = stripeShippingAddress(session);
         const update = {
           paymentStatus: "paid" as const,
           stripePaymentIntentId:
             typeof session.payment_intent === "string"
               ? session.payment_intent
               : undefined,
-          shippingAddress: shippingDetails
-            ? {
-                name: shippingDetails.name,
-                phone: session.customer_details?.phone,
-                line1: shippingDetails.address?.line1,
-                line2: shippingDetails.address?.line2,
-                city: shippingDetails.address?.city,
-                postalCode: shippingDetails.address?.postal_code,
-                country: shippingDetails.address?.country,
-              }
-            : undefined,
+          ...(shippingAddress ? { shippingAddress } : {}),
         };
         const order = metadata.orderId
           ? await Order.findOneAndUpdate(
@@ -86,6 +78,24 @@ router.post("/", async (req, res) => {
             `Stripe webhook could not find a pending order for session ${session.id}.`,
           );
         } else {
+          if (
+            order.fulfillmentStatus === "placed" ||
+            order.fulfillmentStatus === "pending"
+          ) {
+            const changedAt = new Date();
+            await Order.updateOne(
+              {
+                _id: order._id,
+                fulfillmentStatus: { $in: ["placed", "pending"] },
+              },
+              {
+                $set: { fulfillmentStatus: "confirmed" },
+                $push: {
+                  statusHistory: { status: "confirmed", at: changedAt },
+                },
+              },
+            );
+          }
           await Cart.updateOne(
             { userId: order.userId },
             { $set: { items: [] } },
@@ -103,14 +113,27 @@ router.post("/", async (req, res) => {
     if (
       event.type === "checkout.session.expired" ||
       event.type === "checkout.session.async_payment_failed"
-    )
-      await Order.updateOne(
+    ) {
+      const order = await Order.findOneAndUpdate(
         {
           stripeCheckoutSessionId: event.data.object.id,
           paymentStatus: "pending",
         },
         { $set: { paymentStatus: "failed" } },
-      );
+        { new: true },
+      ).lean();
+      if (order) {
+        try {
+          await restoreInventory(inventoryForOrderItems(order.items));
+        } catch (error) {
+          await Order.updateOne(
+            { _id: order._id, paymentStatus: "failed" },
+            { $set: { paymentStatus: "pending" } },
+          );
+          throw error;
+        }
+      }
+    }
     res.json({ received: true });
   } catch (error) {
     console.error("Stripe webhook processing failed", error);

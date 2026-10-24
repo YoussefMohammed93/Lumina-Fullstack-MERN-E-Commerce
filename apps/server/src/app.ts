@@ -6,6 +6,7 @@ import commerceRouter from "./routes/commerce.routes.js";
 import adminRouter from "./routes/admin.routes.js";
 import checkoutRouter from "./routes/checkout.routes.js";
 import stripeWebhookRouter from "./routes/stripe-webhook.routes.js";
+import ordersRouter from "./routes/orders.routes.js";
 
 const app = express();
 
@@ -31,6 +32,7 @@ app.use("/api/v1/auth", authRouter);
 app.use("/api/v1", commerceRouter);
 app.use("/api/v1/admin", adminRouter);
 app.use("/api/v1", checkoutRouter);
+app.use("/api/v1", ordersRouter);
 
 // ── Health check
 app.get("/health", (_req, res) => {

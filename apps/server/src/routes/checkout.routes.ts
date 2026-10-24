@@ -4,6 +4,13 @@ import { Order } from "../models/order.model.js";
 import { Product } from "../models/product.model.js";
 import { getStripe } from "../lib/stripe.js";
 import { requireAuth, requireCsrf } from "../middleware/auth.middleware.js";
+import { createOrderRecord, stripeShippingAddress } from "../lib/orders.js";
+import {
+  inventoryForOrderItems,
+  reserveInventory,
+  restoreInventory,
+  type InventoryReservationItem,
+} from "../lib/inventory.js";
 
 const router = Router();
 router.use(requireAuth);
@@ -81,11 +88,23 @@ function optionalString(value: unknown): string | undefined {
 }
 
 router.post("/checkout/stripe", requireCsrf, async (req, res, next) => {
+  let reservedItems: InventoryReservationItem[] = [];
+  let createdOrderId: string | undefined;
   try {
     const items = await cartItemsForCheckout(String(req.user!._id));
+    const requestedItems = inventoryForOrderItems(
+      items.map((item) => ({
+        productId: item.id,
+        variantId: item.variantId,
+        quantity: item.quantity,
+      })),
+    );
+    await reserveInventory(requestedItems);
+    reservedItems = requestedItems;
 
-    const order = await Order.create({
+    const order = await createOrderRecord({
       userId: req.user!._id,
+      currency: "egp",
       items: items.map(
         ({ id, variantId, sku, attributes, name, price, quantity }) => ({
           productId: id,
@@ -93,19 +112,21 @@ router.post("/checkout/stripe", requireCsrf, async (req, res, next) => {
           sku,
           attributes,
           name,
-          unitAmount: price * 100,
+          unitAmount: price,
           quantity,
         }),
       ),
 
       amountTotal: items.reduce(
-        (total, item) => total + item.price * 100 * item.quantity,
+        (total, item) => total + item.price * item.quantity,
         0,
       ),
 
       paymentMethod: "stripe",
       paymentStatus: "pending",
+      fulfillmentStatus: "placed",
     });
+    createdOrderId = String(order._id);
     const origin = process.env.CLIENT_ORIGIN ?? "http://localhost:3000";
 
     const session = await getStripe().checkout.sessions.create(
@@ -118,7 +139,7 @@ router.post("/checkout/stripe", requireCsrf, async (req, res, next) => {
           price_data: {
             currency: "egp",
             product_data: { name: item.name },
-            unit_amount: item.price * 100,
+            unit_amount: item.price,
           },
           quantity: item.quantity,
         })),
@@ -135,8 +156,16 @@ router.post("/checkout/stripe", requireCsrf, async (req, res, next) => {
     });
 
     if (!session.url) throw new Error("Stripe did not return a checkout URL.");
+    reservedItems = [];
     res.status(201).json({ success: true, data: { url: session.url } });
   } catch (error) {
+    try {
+      if (reservedItems.length) await restoreInventory(reservedItems);
+      if (createdOrderId) await Order.deleteOne({ _id: createdOrderId });
+    } catch (rollbackError) {
+      next(rollbackError);
+      return;
+    }
     next(error);
   }
 });
@@ -145,6 +174,7 @@ router.post(
   "/checkout/cash-on-delivery",
   requireCsrf,
   async (req, res, next) => {
+    let reservedItems: InventoryReservationItem[] = [];
     try {
       const body = req.body as Record<string, unknown>;
       const name = optionalString(body.name);
@@ -169,7 +199,6 @@ router.post(
         });
 
       const items = await cartItemsForCheckout(String(req.user!._id));
-
       if (items.some((item) => !item.cashOnDeliveryAvailable))
         return res.status(400).json({
           success: false,
@@ -179,8 +208,19 @@ router.post(
           },
         });
 
-      const order = await Order.create({
+      const requestedItems = inventoryForOrderItems(
+        items.map((item) => ({
+          productId: item.id,
+          variantId: item.variantId,
+          quantity: item.quantity,
+        })),
+      );
+      await reserveInventory(requestedItems);
+      reservedItems = requestedItems;
+
+      const order = await createOrderRecord({
         userId: req.user!._id,
+        currency: "egp",
         items: items.map(
           ({
             id,
@@ -196,16 +236,17 @@ router.post(
             sku,
             attributes,
             name: productName,
-            unitAmount: price * 100,
+            unitAmount: price,
             quantity,
           }),
         ),
         amountTotal: items.reduce(
-          (total, item) => total + item.price * 100 * item.quantity,
+          (total, item) => total + item.price * item.quantity,
           0,
         ),
         paymentMethod: "cash_on_delivery",
         paymentStatus: "awaiting_cod",
+        fulfillmentStatus: "confirmed",
         shippingAddress: {
           name,
           phone,
@@ -217,6 +258,7 @@ router.post(
           country: "EG",
         },
       });
+      reservedItems = [];
 
       await Cart.updateOne({ userId: req.user!._id }, { $set: { items: [] } });
 
@@ -224,6 +266,12 @@ router.post(
         .status(201)
         .json({ success: true, data: { orderId: String(order._id) } });
     } catch (error) {
+      try {
+        if (reservedItems.length) await restoreInventory(reservedItems);
+      } catch (rollbackError) {
+        next(rollbackError);
+        return;
+      }
       next(error);
     }
   },
@@ -243,32 +291,49 @@ router.get("/checkout/stripe/session/:sessionId", async (req, res, next) => {
     // reconciliation fallback for the hosted Checkout return: the server asks
     // Stripe directly, verifies the session belongs to this exact order/user,
     // and never accepts a payment result supplied by the browser.
-    if (order.paymentStatus === "pending") {
-      const session = await getStripe().checkout.sessions.retrieve(
-        req.params.sessionId,
+    const session = await getStripe().checkout.sessions.retrieve(
+      req.params.sessionId,
+    );
+    if (
+      session.payment_status === "paid" &&
+      (session.metadata?.orderId ?? "") === String(order._id) &&
+      (session.metadata?.userId ?? "") === String(req.user!._id)
+    ) {
+      const shippingAddress = stripeShippingAddress(session);
+      const paymentIntentId =
+        typeof session.payment_intent === "string"
+          ? session.payment_intent
+          : undefined;
+      await Order.updateOne(
+        { _id: order._id },
+        {
+          $set: {
+            paymentStatus: "paid",
+            ...(paymentIntentId ? { stripePaymentIntentId: paymentIntentId } : {}),
+            ...(shippingAddress ? { shippingAddress } : {}),
+          },
+        },
       );
       if (
-        session.payment_status === "paid" &&
-        (session.metadata?.orderId ?? "") === String(order._id) &&
-        (session.metadata?.userId ?? "") === String(req.user!._id)
+        order.fulfillmentStatus === "placed" ||
+        order.fulfillmentStatus === "pending"
       ) {
         await Order.updateOne(
-          { _id: order._id, paymentStatus: "pending" },
           {
-            $set: {
-              paymentStatus: "paid",
-              stripePaymentIntentId:
-                typeof session.payment_intent === "string"
-                  ? session.payment_intent
-                  : undefined,
+            _id: order._id,
+            fulfillmentStatus: { $in: ["placed", "pending"] },
+          },
+          {
+            $set: { fulfillmentStatus: "confirmed" },
+            $push: {
+              statusHistory: { status: "confirmed", at: new Date() },
             },
           },
         );
-        order = await Order.findById(order._id).lean();
       }
+      order = await Order.findById(order._id).lean();
     }
-    // The webhook is the only path that marks this paid. Once it has done so,
-    // make the post-payment status request idempotently enforce an empty cart.
+    // Make the post-payment status request idempotently enforce an empty cart.
     // This protects the buyer from a stale cart if an earlier cart write raced
     // with the webhook while they were returning from hosted Checkout.
     if (order?.paymentStatus === "paid") {
@@ -280,7 +345,11 @@ router.get("/checkout/stripe/session/:sessionId", async (req, res, next) => {
       );
     res.json({
       success: true,
-      data: { id: String(order._id), paymentStatus: order.paymentStatus },
+      data: {
+        id: String(order._id),
+        orderId: String(order._id),
+        paymentStatus: order.paymentStatus,
+      },
     });
   } catch (error) {
     next(error);

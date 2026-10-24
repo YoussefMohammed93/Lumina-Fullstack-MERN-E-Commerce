@@ -21,19 +21,34 @@ export interface IShippingAddress {
   country?: string;
 }
 
+export type OrderFulfillmentStatus =
+  | "pending"
+  | "placed"
+  | "confirmed"
+  | "processing"
+  | "shipped"
+  | "out_for_delivery"
+  | "delivered"
+  | "cancelled";
+
+export interface IOrderStatusHistoryEntry {
+  status: Exclude<OrderFulfillmentStatus, "pending">;
+  at: Date;
+}
+
 export interface IOrder {
+  createdAt?: Date;
+  updatedAt?: Date;
   userId: Types.ObjectId;
   items: IOrderItem[];
   currency: string;
   amountTotal: number;
   paymentMethod: "stripe" | "cash_on_delivery";
   paymentStatus: "pending" | "paid" | "awaiting_cod" | "failed";
-  fulfillmentStatus:
-    | "pending"
-    | "processing"
-    | "shipped"
-    | "delivered"
-    | "cancelled";
+  fulfillmentStatus: OrderFulfillmentStatus;
+  orderNumber?: string;
+  estimatedDelivery?: Date;
+  statusHistory?: IOrderStatusHistoryEntry[];
   stripeCheckoutSessionId?: string;
   stripePaymentIntentId?: string;
   shippingAddress?: IShippingAddress;
@@ -72,9 +87,38 @@ const orderSchema = new Schema<IOrder>(
     },
     fulfillmentStatus: {
       type: String,
-      enum: ["pending", "processing", "shipped", "delivered", "cancelled"],
-      default: "pending",
+      enum: [
+        "pending",
+        "placed",
+        "confirmed",
+        "processing",
+        "shipped",
+        "out_for_delivery",
+        "delivered",
+        "cancelled",
+      ],
+      default: "placed",
     },
+    orderNumber: { type: String, unique: true, sparse: true, index: true },
+    estimatedDelivery: Date,
+    statusHistory: [
+      {
+        status: {
+          type: String,
+          enum: [
+            "placed",
+            "confirmed",
+            "processing",
+            "shipped",
+            "out_for_delivery",
+            "delivered",
+            "cancelled",
+          ],
+          required: true,
+        },
+        at: { type: Date, required: true },
+      },
+    ],
     stripeCheckoutSessionId: { type: String, unique: true, sparse: true },
     stripePaymentIntentId: { type: String, sparse: true },
     shippingAddress: {

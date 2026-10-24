@@ -5,7 +5,14 @@ import {
   type FormEvent,
   type ReactNode,
 } from "react";
-import { CheckCircle2, CreditCard, ShieldCheck, Truck } from "lucide-react";
+import {
+  CheckCircle2,
+  CircleAlert,
+  CreditCard,
+  LoaderCircle,
+  ShieldCheck,
+  Truck,
+} from "lucide-react";
 import { z } from "zod";
 import type { Product } from "@/types/product";
 import { formatPrice } from "@/services/api";
@@ -91,6 +98,7 @@ export function CheckoutPage({ products }: { products: Product[] }) {
     Partial<Record<keyof AddressForm, string>>
   >({});
   const [placed, setPlaced] = useState(false);
+  const [placedOrderId, setPlacedOrderId] = useState<string | null>(null);
   const [form, setForm] = useState({
     name: user?.name ?? "",
     phone: "",
@@ -150,12 +158,13 @@ export function CheckoutPage({ products }: { products: Product[] }) {
         window.location.assign(url);
         return;
       }
-      await authenticatedRequest<{ orderId: string }>(
+      const result = await authenticatedRequest<{ orderId: string }>(
         "/checkout/cash-on-delivery",
         csrfToken,
         { method: "POST", body: JSON.stringify(form) },
       );
       await clearCart();
+      setPlacedOrderId(result.orderId);
       setPlaced(true);
     } catch (err) {
       setError(
@@ -171,6 +180,7 @@ export function CheckoutPage({ products }: { products: Product[] }) {
       <OrderConfirmation
         title="Order received"
         message="Your order is confirmed. Please have the exact amount ready when it arrives."
+        orderId={placedOrderId}
       />
     );
   return (
@@ -470,28 +480,57 @@ function OrderSummary({
 export function OrderConfirmation({
   title,
   message,
+  orderId,
+  state = "success",
 }: {
   title: string;
   message: string;
+  orderId?: string | null;
+  state?: "success" | "pending" | "error";
 }) {
+  const ConfirmationIcon =
+    state === "pending"
+      ? LoaderCircle
+      : state === "error"
+        ? CircleAlert
+        : CheckCircle2;
   return (
     <main className="flex min-h-screen items-center justify-center bg-background px-5 text-center">
       <div className="max-w-md rounded-3xl border border-border bg-card p-8">
-        <CheckCircle2
-          className="mx-auto size-12 text-clay"
+        <ConfirmationIcon
+          className={`mx-auto size-12 ${
+            state === "pending"
+              ? "animate-spin text-muted-foreground"
+              : state === "error"
+                ? "text-destructive"
+                : "text-clay"
+          }`}
           strokeWidth={1.25}
         />
-        <p className="eyebrow mt-5 text-clay">Thank you</p>
+        <p className="eyebrow mt-5 text-clay">
+          {state === "pending"
+            ? "Secure payment check"
+            : state === "error"
+              ? "Payment status"
+              : "Thank you"}
+        </p>
         <h1 className="mt-3 font-serif text-4xl">{title}</h1>
         <p className="mt-4 text-sm leading-6 text-muted-foreground">
           {message}
         </p>
-        <a
-          href="/"
-          className="mt-7 inline-block text-sm underline underline-offset-4"
-        >
-          Return to the shop
-        </a>
+        <div className="mt-7 flex flex-wrap justify-center gap-4 text-sm">
+          {orderId && (
+            <a
+              href={`/orders/${encodeURIComponent(orderId)}`}
+              className="font-medium text-clay underline underline-offset-4"
+            >
+              Track your order
+            </a>
+          )}
+          <a href="/" className="underline underline-offset-4">
+            Return to the shop
+          </a>
+        </div>
       </div>
     </main>
   );
@@ -501,6 +540,7 @@ export function StripeCheckoutSuccessPage() {
     "session_id",
   );
   const { clearCart } = useCart();
+  const [orderId, setOrderId] = useState<string | null>(null);
   const [status, setStatus] = useState<"waiting" | "paid" | "error">(() =>
     sessionId ? "waiting" : "error",
   );
@@ -510,10 +550,11 @@ export function StripeCheckoutSuccessPage() {
     let timer: number | undefined;
     const check = async () => {
       try {
-        const order = await apiRequest<{ paymentStatus: string }>(
+        const order = await apiRequest<{ paymentStatus: string; orderId: string }>(
           `/checkout/stripe/session/${encodeURIComponent(sessionId)}`,
         );
         if (cancelled) return;
+        setOrderId(order.orderId);
         if (order.paymentStatus === "paid") {
           await clearCart();
           if (!cancelled) setStatus("paid");
@@ -534,6 +575,7 @@ export function StripeCheckoutSuccessPage() {
     <OrderConfirmation
       title="Payment confirmed"
       message="Your payment was verified and your order is now being prepared."
+      orderId={orderId}
     />
   ) : (
     <OrderConfirmation
@@ -547,6 +589,8 @@ export function StripeCheckoutSuccessPage() {
           ? "If your card was charged, please contact support with your Stripe receipt."
           : "We are waiting for Stripe's secure confirmation. This usually takes only a moment."
       }
+      orderId={orderId}
+      state={status === "waiting" ? "pending" : "error"}
     />
   );
 }

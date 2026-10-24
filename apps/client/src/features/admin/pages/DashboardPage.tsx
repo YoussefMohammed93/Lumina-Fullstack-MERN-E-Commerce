@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/features/admin/components/PageHeader";
+import { formatPrice } from "@/services/api";
 
 const palette = {
   green: { backgroundColor: "#dcfce7", color: "#15803d" },
@@ -23,7 +24,7 @@ const palette = {
 };
 const metrics = [
   {
-    label: "Revenue",
+    label: "Paid revenue",
     value: "EGP 84,520",
     detail: "+12.5% from last month",
     icon: CircleDollarSign,
@@ -116,7 +117,17 @@ const orders = [
   },
 ];
 
-export function DashboardPage({ userName }: { userName: string }) {
+export function DashboardPage({
+  userName,
+  paidRevenue,
+  revenueError,
+}: {
+  userName: string;
+  paidRevenue: number | null;
+  revenueError: string | null;
+}) {
+  const revenueLabel = paidRevenue === null ? "—" : formatPrice(paidRevenue);
+
   return (
     <div className="space-y-7">
       <PageHeader
@@ -130,6 +141,14 @@ export function DashboardPage({ userName }: { userName: string }) {
           </Button>
         }
       />
+      {revenueError && (
+        <p
+          role="alert"
+          className="rounded-md border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive"
+        >
+          {revenueError}
+        </p>
+      )}
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {metrics.map((metric) => {
           const Icon = metric.icon;
@@ -151,7 +170,7 @@ export function DashboardPage({ userName }: { userName: string }) {
               </CardHeader>
               <CardContent>
                 <p className="text-[1.75rem] leading-none font-semibold tracking-tight">
-                  {metric.value}
+                  {metric.label === "Paid revenue" ? revenueLabel : metric.value}
                 </p>
                 <p className="mt-2 flex items-center gap-1 text-xs font-medium text-muted-foreground">
                   <TrendingUp
@@ -159,7 +178,9 @@ export function DashboardPage({ userName }: { userName: string }) {
                     style={{ color: metric.tone.color }}
                     strokeWidth={2.25}
                   />
-                  {metric.detail}
+                  {metric.label === "Paid revenue"
+                    ? "Paid orders, including delivered cash on delivery"
+                    : metric.detail}
                 </p>
               </CardContent>
             </Card>
@@ -171,14 +192,14 @@ export function DashboardPage({ userName }: { userName: string }) {
           <CardHeader className="flex-row items-start justify-between">
             <div>
               <CardTitle className="text-2xl sm:text-3xl">
-                Revenue overview
+                Paid revenue overview
               </CardTitle>
               <p className="mt-1 text-xs sm:text-sm font-medium text-muted-foreground">
-                Last 30 days
+                All-time paid orders
               </p>
             </div>
             <Badge variant="secondary" className="font-semibold mt-2">
-              EGP 84,520
+              {revenueLabel}
             </Badge>
           </CardHeader>
           <CardContent>

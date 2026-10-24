@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   ArrowLeft,
   ArrowRight,
   BadgeCheck,
   Check,
   CircleHelp,
+  CircleX,
   Clock3,
   CreditCard,
+  Download,
   MapPin,
   Package,
   PackageCheck,
@@ -24,8 +27,9 @@ import {
 import type { Category, Product } from "@/types/product";
 import { StorefrontLayout } from "@/components/StorefrontLayout";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SafeImage } from "@/components/motion/SafeImage";
 
-const stageIcons: Record<OrderStage, LucideIcon> = {
+const stageIcons: Record<Exclude<OrderStage, "cancelled">, LucideIcon> = {
   placed: PackageCheck,
   confirmed: BadgeCheck,
   processing: Warehouse,
@@ -41,6 +45,7 @@ const stageBadgeClass: Record<OrderStage, string> = {
   shipped: "bg-violet-100 text-violet-800",
   out_for_delivery: "bg-orange-100 text-orange-800",
   delivered: "bg-emerald-100 text-emerald-800",
+  cancelled: "bg-rose-100 text-rose-800",
 };
 
 function formatDate(value: string, includeTime = false) {
@@ -52,117 +57,182 @@ function formatDate(value: string, includeTime = false) {
   }).format(new Date(value));
 }
 
-function orderTotal(order: TrackingOrder) {
-  return (
-    order.items.reduce(
-      (total, item) => total + item.unitAmount * item.quantity,
-      0,
-    ) + order.shippingAmount
+function normalizeLegacyOrderAmounts(
+  order: TrackingOrder,
+  products: Product[],
+): TrackingOrder {
+  const matchesPreviouslyScaledPrices = order.items.every((item) => {
+    const product = products.find(
+      (candidate) => candidate.id === item.productId,
+    );
+    const variant = product?.variants?.find(
+      (candidate) => candidate.id === item.variantId,
+    );
+    return variant && item.unitAmount === variant.price * 100;
+  });
+  const itemTotal = order.items.reduce(
+    (total, item) => total + item.unitAmount * item.quantity,
+    0,
   );
+
+  // Older checkout records multiplied catalog minor-unit prices by 100 again.
+  if (!matchesPreviouslyScaledPrices || order.amountTotal !== itemTotal)
+    return order;
+
+  return {
+    ...order,
+    amountTotal: order.amountTotal / 100,
+    items: order.items.map((item) => ({
+      ...item,
+      unitAmount: item.unitAmount / 100,
+    })),
+  };
 }
 
 function StageTimeline({ order }: { order: TrackingOrder }) {
   const currentIndex = ORDER_STAGES.findIndex(
     (stage) => stage.key === order.currentStage,
   );
+  const cancelled = order.currentStage === "cancelled";
 
   return (
-    <ol aria-label="Order status timeline" className="mt-8">
-      {ORDER_STAGES.map((stage, index) => {
-        const complete = index < currentIndex;
-        const current = index === currentIndex;
-        const timestamp = order.timeline[stage.key];
-        const Icon = stageIcons[stage.key];
+    <>
+      {cancelled && (
+        <div
+          role="status"
+          className="mt-6 rounded-md border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900"
+        >
+          <p className="font-medium">This order was cancelled.</p>
+          {order.timeline.cancelled && (
+            <time
+              dateTime={order.timeline.cancelled}
+              className="mt-1 block text-xs text-rose-800"
+            >
+              Cancelled {formatDate(order.timeline.cancelled, true)}
+            </time>
+          )}
+        </div>
+      )}
+      <ol aria-label="Order status timeline" className="mt-8">
+        {ORDER_STAGES.map((stage, index) => {
+          const timestamp = order.timeline[stage.key];
+          const current = index === currentIndex;
+          const complete =
+            index < currentIndex || (cancelled && Boolean(timestamp));
+          const Icon = stageIcons[stage.key];
 
-        return (
-          <li
-            key={stage.key}
-            className="relative flex gap-4 pb-7 last:pb-0 sm:gap-5"
-          >
-            {index < ORDER_STAGES.length - 1 && (
+          return (
+            <li
+              key={stage.key}
+              className="relative flex gap-4 pb-7 last:pb-0 sm:gap-5"
+            >
+              {index < ORDER_STAGES.length - 1 && (
               <span
                 aria-hidden="true"
                 className={`absolute top-9 bottom-0 left-4 w-px ${
                   complete ? "bg-clay/60" : "bg-border"
                 }`}
               />
-            )}
-            <span
-              aria-hidden="true"
-              className={`relative z-10 flex size-8 shrink-0 items-center justify-center rounded-full border ${
-                complete
-                  ? "border-clay bg-clay text-background"
-                  : current
-                    ? "border-clay bg-background text-clay ring-4 ring-clay/10"
-                    : "border-border bg-background text-muted-foreground"
-              }`}
-            >
-              <Icon className="size-4" strokeWidth={1.6} />
-            </span>
-            <div className="min-w-0 flex-1 pt-0.5 sm:flex sm:items-start sm:justify-between sm:gap-4">
-              <div>
-                <p
-                  className={`text-sm ${
-                    current || complete
-                      ? "font-medium text-foreground"
-                      : "text-muted-foreground"
-                  }`}
-                >
-                  {stage.label}
-                  {current && (
-                    <span
-                      className={`ml-2 rounded-full px-2 py-1 text-[10px] font-medium uppercase tracking-[0.14em] ${stageBadgeClass[stage.key]}`}
-                    >
-                      Current
-                    </span>
-                  )}
-                </p>
-                {current && (
-                  <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                    {stage.key === "delivered"
-                      ? "Your order has arrived. We hope you love it."
-                      : "Your order is moving along. We’ll keep you updated."}
+              )}
+              <span
+                aria-hidden="true"
+                className={`relative z-10 flex size-8 shrink-0 items-center justify-center rounded-full border ${
+                  complete
+                    ? "border-clay bg-clay text-background"
+                    : current
+                      ? "border-clay bg-background text-clay ring-4 ring-clay/10"
+                      : "border-border bg-background text-muted-foreground"
+                }`}
+              >
+                <Icon className="size-4" strokeWidth={1.6} />
+              </span>
+              <div className="min-w-0 flex-1 pt-0.5 sm:flex sm:items-start sm:justify-between sm:gap-4">
+                <div>
+                  <p
+                    className={`text-sm ${
+                      current || complete
+                        ? "font-medium text-foreground"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    {stage.label}
+                    {current && (
+                      <span
+                        className={`ml-2 rounded-full px-2 py-1 text-[10px] font-medium uppercase tracking-[0.14em] ${stageBadgeClass[stage.key]}`}
+                      >
+                        Current
+                      </span>
+                    )}
                   </p>
+                  {current && (
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                      {stage.key === "delivered"
+                        ? "Your order has arrived. We hope you love it."
+                        : "Your order is moving along. We’ll keep you updated."}
+                    </p>
+                  )}
+                </div>
+                {timestamp && (
+                  <time
+                    dateTime={timestamp}
+                    className="mt-1 block shrink-0 text-xs text-muted-foreground sm:mt-0 sm:text-right"
+                  >
+                    {formatDate(timestamp, true)}
+                  </time>
                 )}
               </div>
-              {timestamp && (
-                <time
-                  dateTime={timestamp}
-                  className="mt-1 block shrink-0 text-xs text-muted-foreground sm:mt-0 sm:text-right"
-                >
-                  {formatDate(timestamp, true)}
-                </time>
-              )}
-            </div>
-          </li>
-        );
-      })}
-    </ol>
+            </li>
+          );
+        })}
+      </ol>
+    </>
   );
 }
 
-function OrderItems({ order }: { order: TrackingOrder }) {
+function OrderItems({
+  order,
+  products,
+}: {
+  order: TrackingOrder;
+  products: Product[];
+}) {
   return (
     <ul className="mt-5 divide-y divide-border/80">
-      {order.items.map((item) => (
-        <li
-          key={`${item.name}-${item.variant}`}
-          className="flex items-start gap-4 py-4 first:pt-0 last:pb-0"
-        >
-          <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-secondary text-clay">
-            <Package className="size-5" strokeWidth={1.4} />
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium">{item.name}</p>
-            <p className="mt-1 text-xs leading-5 text-muted-foreground">
-              {item.variant} · Qty {item.quantity}
+      {order.items.map((item) => {
+        const product = products.find(
+          (candidate) => candidate.id === item.productId,
+        );
+        const image = product?.images[0];
+
+        return (
+          <li
+            key={`${item.name}-${item.variant}`}
+            className="flex items-start gap-4 py-4 first:pt-0 last:pb-0"
+          >
+            <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-sm
+             bg-secondary text-clay">
+              {image ? (
+                <SafeImage
+                  src={image}
+                  alt={item.name}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <Package className="size-5" strokeWidth={1.4} />
+              )}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium">{item.name}</p>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                {item.variant} · Qty {item.quantity}
+              </p>
+            </div>
+            <p className="shrink-0 text-sm tabular">
+              {formatPrice(item.unitAmount * item.quantity)}
             </p>
-          </div>
-          <p className="shrink-0 text-sm tabular">
-            {formatPrice(item.unitAmount * item.quantity)}
-          </p>
-        </li>
-      ))}
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -217,7 +287,7 @@ function OrderDetails({ order }: { order: TrackingOrder }) {
           </div>
           <div className="flex justify-between gap-3 border-t border-border pt-3 font-medium">
             <span>Total</span>
-            <span className="tabular">{formatPrice(orderTotal(order))}</span>
+            <span className="tabular">{formatPrice(order.amountTotal)}</span>
           </div>
         </div>
       </section>
@@ -328,7 +398,131 @@ export function OrderTrackingSkeleton() {
   );
 }
 
-function OrderTrackingContent({ orderId }: { orderId: string }) {
+function OrderInvoice({ order }: { order: TrackingOrder }) {
+  const subtotal = order.items.reduce(
+    (total, item) => total + item.unitAmount * item.quantity,
+    0,
+  );
+
+  return createPortal(
+    <>
+      <style>{`
+        @media print {
+          @page { size: A4; margin: 12mm; }
+          body > * { display: none !important; }
+          body > #order-invoice { display: block !important; }
+          #order-invoice {
+            position: static !important;
+            box-sizing: border-box;
+            color: #171512;
+            background: #fff;
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+          #order-invoice tr,
+          #order-invoice section,
+          #order-invoice header,
+          #order-invoice > div {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+        }
+      `}</style>
+      <article
+        id="order-invoice"
+        className="hidden print:block"
+        aria-label={`Invoice for order ${order.orderNumber}`}
+      >
+        <header className="flex items-start justify-between border-b border-stone-300 pb-6">
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em]">Lumina</p>
+            <h1 className="mt-3 font-serif text-3xl">Order invoice</h1>
+          </div>
+          <div className="text-right text-sm">
+            <p className="font-medium">#{order.orderNumber}</p>
+            <p className="mt-1">{formatDate(order.placedAt)}</p>
+          </div>
+        </header>
+        <div className="grid grid-cols-2 gap-8 py-6 text-sm">
+          <section>
+            <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide">
+              Billed to
+            </h2>
+            <p>{order.shipping.name}</p>
+            {order.shipping.address.map((line) => (
+              <p key={line}>{line}</p>
+            ))}
+            {order.shipping.phone && <p>{order.shipping.phone}</p>}
+          </section>
+          <section>
+            <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide">
+              Payment
+            </h2>
+            <p>{order.paymentMethod}</p>
+            <p className="mt-1">{order.paymentStatus}</p>
+          </section>
+        </div>
+        <table className="w-full border-collapse text-left text-sm">
+          <thead>
+            <tr className="border-y border-stone-300">
+              <th className="py-3 font-medium">Item</th>
+              <th className="py-3 text-center font-medium">Qty</th>
+              <th className="py-3 text-right font-medium">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            {order.items.map((item) => (
+              <tr
+                key={`${item.productId}-${item.variantId}`}
+                className="border-b border-stone-200"
+              >
+                <td className="py-3">
+                  {item.name}
+                  {item.variant && (
+                    <span className="block text-xs text-stone-600">
+                      {item.variant}
+                    </span>
+                  )}
+                </td>
+                <td className="py-3 text-center">{item.quantity}</td>
+                <td className="py-3 text-right">
+                  {formatPrice(item.unitAmount * item.quantity)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div className="ml-auto mt-6 max-w-xs space-y-2 text-sm">
+          <div className="flex justify-between gap-4">
+            <span>Subtotal</span>
+            <span>{formatPrice(subtotal)}</span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span>Delivery</span>
+            <span>
+              {order.shippingAmount
+                ? formatPrice(order.shippingAmount)
+                : "Complimentary"}
+            </span>
+          </div>
+          <div className="flex justify-between gap-4 border-t border-stone-300 pt-3 font-semibold">
+            <span>Total</span>
+            <span>{formatPrice(order.amountTotal)}</span>
+          </div>
+        </div>
+      </article>
+    </>,
+    document.body,
+  );
+}
+
+function OrderTrackingContent({
+  orderId,
+  products,
+}: {
+  orderId: string;
+  products: Product[];
+}) {
   const [order, setOrder] = useState<TrackingOrder | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -339,7 +533,8 @@ function OrderTrackingContent({ orderId }: { orderId: string }) {
     void orderTrackingService
       .getOrder(orderId)
       .then((result) => {
-        if (!cancelled) setOrder(result ?? null);
+        if (!cancelled)
+          setOrder(result ? normalizeLegacyOrderAmounts(result, products) : null);
       })
       .catch((loadError: unknown) => {
         if (!cancelled) {
@@ -357,7 +552,7 @@ function OrderTrackingContent({ orderId }: { orderId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [orderId]);
+  }, [orderId, products]);
 
   if (loading) {
     return (
@@ -470,6 +665,7 @@ function OrderTrackingContent({ orderId }: { orderId: string }) {
     (stage) => stage.key === order.currentStage,
   );
   const isDelivered = order.currentStage === "delivered";
+  const isCancelled = order.currentStage === "cancelled";
 
   return (
     <main className="min-h-screen bg-background px-5 pb-16 pt-8 sm:px-8 sm:pt-12">
@@ -485,12 +681,13 @@ function OrderTrackingContent({ orderId }: { orderId: string }) {
           <div>
             <div className="flex flex-wrap items-center gap-3">
               <p className="eyebrow text-clay">Order tracking</p>
-              <span className="rounded-full border border-clay/25 bg-clay/5 px-2.5 py-1 text-[10px] uppercase tracking-[0.15em] text-clay">
-                Sample data
-              </span>
             </div>
             <h1 className="mt-3 max-w-2xl font-serif text-4xl leading-tight tracking-tight sm:text-5xl">
-              {isDelivered ? "Your order has arrived." : "A little closer to home."}
+              {isCancelled
+                ? "This order was cancelled."
+                : isDelivered
+                  ? "Your order has arrived."
+                  : "A little closer to home."}
             </h1>
             <p className="mt-3 text-sm text-muted-foreground">
               Order <span className="font-medium text-foreground">#{order.orderNumber}</span>
@@ -498,12 +695,23 @@ function OrderTrackingContent({ orderId }: { orderId: string }) {
               Placed {formatDate(order.placedAt)}
             </p>
           </div>
-          <a
-            href="/settings"
-            className="inline-flex h-10 shrink-0 items-center justify-center gap-2 self-start rounded-full border border-border px-4 text-xs transition-colors hover:border-foreground/30 sm:self-auto"
-          >
-            All orders <ArrowRight className="size-3.5" />
-          </a>
+          <div className="flex flex-wrap gap-2 self-start sm:self-auto">
+            <button
+              type="button"
+              onClick={() => window.print()}
+              title="Choose Save as PDF in the print dialog"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-border px-4 text-xs transition-colors hover:border-foreground/30"
+            >
+              <Download className="size-3.5" />
+              Save invoice as PDF
+            </button>
+            <a
+              href="/settings"
+              className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-full border border-border px-4 text-xs transition-colors hover:border-foreground/30"
+            >
+              All orders <ArrowRight className="size-3.5" />
+            </a>
+          </div>
         </header>
 
         <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_21rem] lg:gap-8">
@@ -512,7 +720,9 @@ function OrderTrackingContent({ orderId }: { orderId: string }) {
               <div className="flex flex-col justify-between gap-5 bg-secondary/55 p-6 sm:flex-row sm:items-center sm:px-8 sm:py-7">
                 <div className="flex items-start gap-4">
                   <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-clay text-background">
-                    {isDelivered ? (
+                    {isCancelled ? (
+                      <CircleX className="size-5" />
+                    ) : isDelivered ? (
                       <Check className="size-5" />
                     ) : (
                       <Truck className="size-5" strokeWidth={1.5} />
@@ -520,22 +730,32 @@ function OrderTrackingContent({ orderId }: { orderId: string }) {
                   </span>
                   <div>
                     <p className="eyebrow text-clay">
-                      {isDelivered ? "Delivery complete" : "Current status"}
+                      {isCancelled
+                        ? "Order status"
+                        : isDelivered
+                          ? "Delivery complete"
+                          : "Current status"}
                     </p>
                     <h2 className="mt-2 font-serif text-3xl">
-                      {currentStage?.label}
+                      {currentStage?.label ?? "Cancelled"}
                     </h2>
                   </div>
                 </div>
                 <div className="rounded-md border border-border/80 bg-card px-5 py-3 sm:min-w-48">
                   <p className="eyebrow text-muted-foreground">
-                    {isDelivered ? "Delivered on" : "Estimated delivery"}
+                    {isCancelled
+                      ? "Cancelled on"
+                      : isDelivered
+                        ? "Delivered on"
+                        : "Estimated delivery"}
                   </p>
                   <p className="mt-2 text-sm font-medium">
                     {formatDate(
-                      isDelivered
-                        ? (order.timeline.delivered ?? order.estimatedDelivery)
-                        : order.estimatedDelivery,
+                      isCancelled
+                        ? (order.timeline.cancelled ?? order.placedAt)
+                        : isDelivered
+                          ? (order.timeline.delivered ?? order.estimatedDelivery)
+                          : order.estimatedDelivery,
                     )}
                   </p>
                 </div>
@@ -568,16 +788,13 @@ function OrderTrackingContent({ orderId }: { orderId: string }) {
                   pieces
                 </span>
               </div>
-              <OrderItems order={order} />
+              <OrderItems order={order} products={products} />
             </section>
           </div>
 
           <OrderDetails order={order} />
         </div>
-
-        <p className="mt-8 text-center text-[10px] uppercase tracking-[0.17em] text-muted-foreground/80">
-          Order dates and tracking details shown here are sample data
-        </p>
+        <OrderInvoice order={order} />
       </div>
     </main>
   );
@@ -594,7 +811,7 @@ export function OrderTrackingPage({
 }) {
   return (
     <StorefrontLayout products={products} categories={categories}>
-      <OrderTrackingContent orderId={orderId} />
+      <OrderTrackingContent orderId={orderId} products={products} />
     </StorefrontLayout>
   );
 }
@@ -637,9 +854,6 @@ export function OrderHistorySection() {
           <p className="eyebrow text-clay">Your purchases</p>
           <h2 className="mt-2 font-serif text-3xl">Order history</h2>
         </div>
-        <span className="rounded-full border border-clay/25 bg-clay/5 px-2.5 py-1 text-[10px] uppercase tracking-[0.15em] text-clay">
-          Sample data
-        </span>
       </div>
 
       {loading ? (
@@ -664,6 +878,7 @@ export function OrderHistorySection() {
             const status = ORDER_STAGES.find(
               (stage) => stage.key === order.currentStage,
             );
+            const cancelled = order.currentStage === "cancelled";
             const itemCount = order.items.reduce(
               (count, item) => count + item.quantity,
               0,
@@ -679,7 +894,9 @@ export function OrderHistorySection() {
                   <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
                     <div className="flex min-w-0 items-start gap-4">
                       <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-secondary text-clay">
-                        {delivered ? (
+                        {cancelled ? (
+                          <CircleX className="size-5" />
+                        ) : delivered ? (
                           <Check className="size-5" />
                         ) : (
                           <Truck className="size-5" strokeWidth={1.5} />
@@ -693,7 +910,7 @@ export function OrderHistorySection() {
                           <span
                             className={`rounded-full px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.12em] ${stageBadgeClass[order.currentStage]}`}
                           >
-                            {status?.label}
+                            {status?.label ?? "Cancelled"}
                           </span>
                         </div>
                         <p className="mt-1.5 text-xs text-muted-foreground">
@@ -708,12 +925,14 @@ export function OrderHistorySection() {
                     <div className="flex items-center justify-between gap-4 border-t border-border pt-4 sm:justify-end sm:border-0 sm:pt-0">
                       <div className="sm:text-right">
                         <p className="text-sm font-medium tabular">
-                          {formatPrice(orderTotal(order))}
+                          {formatPrice(order.amountTotal)}
                         </p>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          {delivered
-                            ? `Delivered ${formatDate(order.timeline.delivered ?? order.estimatedDelivery)}`
-                            : `Arrives ${formatDate(order.estimatedDelivery)}`}
+                          {cancelled
+                            ? `Cancelled ${formatDate(order.timeline.cancelled ?? order.placedAt)}`
+                            : delivered
+                              ? `Delivered ${formatDate(order.timeline.delivered ?? order.estimatedDelivery)}`
+                              : `Arrives ${formatDate(order.estimatedDelivery)}`}
                         </p>
                       </div>
                       <span className="flex size-9 shrink-0 items-center justify-center rounded-full border border-border transition-all group-hover:border-clay group-hover:bg-clay group-hover:text-background">

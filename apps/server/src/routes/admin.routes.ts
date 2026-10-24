@@ -11,6 +11,13 @@ import {
   requireRole,
 } from "../middleware/auth.middleware.js";
 import { presentProduct } from "./product.routes.js";
+import {
+  normalizedFulfillmentStatus,
+  orderCreatedAt,
+  orderNumberForId,
+  paidRevenueTotal,
+} from "../lib/orders.js";
+import type { OrderFulfillmentStatus } from "../models/order.model.js";
 
 const router = Router();
 
@@ -24,6 +31,37 @@ const slugify = (value: string) =>
 
 const text = (value: unknown) =>
   typeof value === "string" ? value.trim() : "";
+
+const orderStatuses = [
+  "placed",
+  "confirmed",
+  "processing",
+  "shipped",
+  "out_for_delivery",
+  "delivered",
+  "cancelled",
+] as const satisfies readonly OrderFulfillmentStatus[];
+const ORDER_PAGE_SIZE_DEFAULT = 10;
+const ORDER_PAGE_SIZE_MAX = 100;
+
+function positiveInteger(value: unknown, fallback: number, max: number) {
+  if (typeof value !== "string" || !/^\d+$/.test(value)) return fallback;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed > 0
+    ? Math.min(parsed, max)
+    : fallback;
+}
+
+function escapeRegex(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function isOrderStatus(value: unknown): value is (typeof orderStatuses)[number] {
+  return (
+    typeof value === "string" &&
+    (orderStatuses as readonly string[]).includes(value)
+  );
+}
 
 function invalid(body: any) {
   if (
@@ -154,12 +192,17 @@ function categoryInput(body: any) {
   };
 }
 
-router.get("/dashboard/overview", (_req, res) =>
-  res.json({
-    success: true,
-    data: { message: "Admin dashboard access granted." },
-  }),
-);
+router.get("/dashboard/overview", async (_req, res, next) => {
+  try {
+    const paidRevenue = await paidRevenueTotal();
+    res.json({
+      success: true,
+      data: { paidRevenue },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
 router.post("/uploads/signature", requireCsrf, (_req, res) => {
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
   const apiKey = process.env.CLOUDINARY_API_KEY;
@@ -620,6 +663,247 @@ router.patch("/customers/:id/status", requireCsrf, async (req, res, next) => {
         role: user.role,
         status: user.status,
         createdAt: (user as any).createdAt,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/orders", async (req, res, next) => {
+  try {
+    const page = positiveInteger(req.query.page, 1, Number.MAX_SAFE_INTEGER);
+    const limit = positiveInteger(
+      req.query.limit,
+      ORDER_PAGE_SIZE_DEFAULT,
+      ORDER_PAGE_SIZE_MAX,
+    );
+    const search = text(req.query.search);
+    const status = text(req.query.status);
+    const sort = text(req.query.sort);
+    if (status && status !== "all" && !isOrderStatus(status))
+      return res.status(400).json({
+        success: false,
+        error: { message: "Choose a valid fulfillment status." },
+      });
+
+    const filter: Record<string, unknown> = {};
+    if (status === "placed")
+      filter.fulfillmentStatus = { $in: ["placed", "pending"] };
+    else if (status && status !== "all") filter.fulfillmentStatus = status;
+    const orderSort = sort === "oldest" ? { createdAt: 1 as const, _id: 1 as const } : { createdAt: -1 as const, _id: -1 as const };
+
+    if (search) {
+      const escapedSearch = escapeRegex(search);
+      const matchingUsers = await User.find({
+        $or: [
+          { name: { $regex: escapedSearch, $options: "i" } },
+          { username: { $regex: escapedSearch, $options: "i" } },
+          { email: { $regex: escapedSearch, $options: "i" } },
+        ],
+      })
+        .select("_id")
+        .lean();
+      const matchingUserIds = matchingUsers.map((user) => user._id);
+      const orderSearch = {
+        $or: [
+          { orderNumber: { $regex: escapedSearch, $options: "i" } },
+          ...(isValidObjectId(search)
+            ? [{ _id: search }]
+            : []),
+          ...(matchingUserIds.length
+            ? [{ userId: { $in: matchingUserIds } }]
+            : []),
+        ],
+      };
+      filter.$and = [orderSearch];
+    }
+
+    const [orders, total, aggregate, paidRevenue] = await Promise.all([
+      Order.find(filter)
+        .sort(orderSort)
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean(),
+      Order.countDocuments(filter),
+      Order.aggregate([
+        {
+          $group: {
+            _id: null,
+            total: { $sum: 1 },
+            toFulfill: {
+              $sum: {
+                $cond: [
+                  {
+                    $in: [
+                      "$fulfillmentStatus",
+                      ["delivered", "cancelled", "out_for_delivery"],
+                    ],
+                  },
+                  0,
+                  1,
+                ],
+              },
+            },
+            inTransit: {
+              $sum: {
+                $cond: [
+                  { $in: ["$fulfillmentStatus", ["shipped", "out_for_delivery"]] },
+                  1,
+                  0,
+                ],
+              },
+            },
+          },
+        },
+      ]),
+      paidRevenueTotal(),
+    ]);
+
+    const users = await User.find({
+      _id: { $in: orders.map((order) => order.userId) },
+    })
+      .select("name username email")
+      .lean();
+    const usersById = new Map(users.map((user) => [String(user._id), user]));
+    const stats = aggregate[0] ?? {
+      total: 0,
+      toFulfill: 0,
+      inTransit: 0,
+    };
+
+    res.json({
+      success: true,
+      data: {
+        orders: orders.map((order) => {
+          const user = usersById.get(String(order.userId));
+          const id = String(order._id);
+          const address = order.shippingAddress ?? {};
+          const addressLines = [
+            address.name,
+            address.phone ? `Phone: ${address.phone}` : undefined,
+            address.line1,
+            address.line2,
+            [address.city, address.governorate].filter(Boolean).join(", "),
+            address.postalCode,
+            address.country === "EG" ? "Egypt" : address.country,
+          ].filter((line): line is string => Boolean(line));
+
+          return {
+            id,
+            orderNumber: order.orderNumber ?? orderNumberForId(id),
+            customer: address.name ?? user?.name ?? user?.username ?? "Customer",
+            email: user?.email ?? "",
+            placedAt: orderCreatedAt(order),
+            status: normalizedFulfillmentStatus(order.fulfillmentStatus),
+            paymentStatus:
+              order.paymentStatus === "paid"
+                ? "paid"
+                : order.paymentStatus === "awaiting_cod"
+                  ? "awaiting_payment"
+                  : order.paymentStatus,
+            paymentMethod: order.paymentMethod,
+            items: order.items.map((item) => ({
+              productId: item.productId,
+              variantId: item.variantId,
+              sku: item.sku,
+              attributes: item.attributes ?? {},
+              name: item.name,
+              variant: Object.values(item.attributes ?? {})
+                .filter(Boolean)
+                .join(" · ") || item.sku,
+              quantity: item.quantity,
+              amount: item.unitAmount,
+            })),
+            total: order.amountTotal,
+            currency: order.currency,
+            address: addressLines,
+          };
+        }),
+        pagination: {
+          page,
+          limit,
+          total,
+          pageCount: Math.ceil(total / limit),
+        },
+        stats: {
+          total: stats.total,
+          paidRevenue,
+          toFulfill: stats.toFulfill,
+          inTransit: stats.inTransit,
+        },
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.patch("/orders/:id/status", requireCsrf, async (req, res, next) => {
+  try {
+    const id = req.params.id;
+    const status = req.body?.status;
+    if (!isValidObjectId(id))
+      return res.status(400).json({
+        success: false,
+        error: { message: "Choose a valid order." },
+      });
+    if (!isOrderStatus(status))
+      return res.status(400).json({
+        success: false,
+        error: { message: "Choose a valid fulfillment status." },
+      });
+
+    const existing = await Order.findById(id).lean();
+    if (!existing)
+      return res
+        .status(404)
+        .json({ success: false, error: { message: "Order not found." } });
+
+    const changed = normalizedFulfillmentStatus(existing.fulfillmentStatus) !== status;
+    const collectedCashOnDelivery =
+      status === "delivered" &&
+      existing.paymentMethod === "cash_on_delivery" &&
+      existing.paymentStatus !== "paid";
+    if (changed || collectedCashOnDelivery) {
+      const changedAt = new Date();
+      const update: {
+        $set: Record<string, string>;
+        $push?: { statusHistory: { status: (typeof orderStatuses)[number]; at: Date } };
+      } = { $set: {} };
+      if (changed) {
+        update.$set.fulfillmentStatus = status;
+        update.$push = { statusHistory: { status, at: changedAt } };
+      }
+      if (collectedCashOnDelivery) update.$set.paymentStatus = "paid";
+
+      const order = await Order.findByIdAndUpdate(id, update, {
+        new: true,
+        runValidators: true,
+      }).lean();
+      if (!order)
+        return res
+          .status(404)
+          .json({ success: false, error: { message: "Order not found." } });
+
+      return res.json({
+        success: true,
+        data: {
+          id: String(order._id),
+          status: normalizedFulfillmentStatus(order.fulfillmentStatus),
+          changed,
+          changedAt: changed ? changedAt : null,
+        },
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        id: String(existing._id),
+        status: normalizedFulfillmentStatus(existing.fulfillmentStatus),
+        changed: false,
+        changedAt: null,
       },
     });
   } catch (error) {

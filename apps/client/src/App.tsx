@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type { Category, Product, Testimonial } from "@/types/product";
 import {
   fetchCategories,
@@ -26,7 +26,11 @@ import {
   OrderTrackingPage,
   OrderTrackingSkeleton,
 } from "@/features/orders/OrderTrackingPage";
-import { StorefrontLoadingLayout } from "@/components/StorefrontLayout";
+import {
+  StorefrontLayout,
+  StorefrontLoadingLayout,
+} from "@/components/StorefrontLayout";
+import { useAuth } from "@/features/auth/useAuth";
 import { InfoPage } from "@/features/info/InfoPage";
 import { CartPage, CartSkeleton } from "@/features/cart/CartPage";
 import {
@@ -39,6 +43,58 @@ interface StoreData {
   products: Product[];
   categories: Category[];
   testimonials: Testimonial[];
+}
+
+function AuthenticatedRoute({
+  children,
+  products,
+  categories,
+}: {
+  children: ReactNode;
+  products: Product[];
+  categories: Category[];
+}) {
+  const { user, loading, openAuth } = useAuth();
+
+  if (loading) {
+    return (
+      <StorefrontLoadingLayout>
+        <main
+          aria-label="Checking your account"
+          className="mx-auto min-h-[55vh] max-w-6xl px-5 py-16 sm:px-8"
+        >
+          <div className="mx-auto max-w-md animate-pulse space-y-4 text-center">
+            <div className="mx-auto h-3 w-28 rounded bg-muted" />
+            <div className="mx-auto h-10 w-72 max-w-full rounded bg-muted" />
+            <div className="mx-auto h-4 w-64 max-w-full rounded bg-muted" />
+          </div>
+        </main>
+      </StorefrontLoadingLayout>
+    );
+  }
+
+  if (!user) {
+    return (
+      <StorefrontLayout products={products} categories={categories}>
+        <main className="flex min-h-[55vh] flex-col items-center justify-center px-6 text-center">
+          <p className="eyebrow text-clay">Your account</p>
+          <h1 className="mt-3 font-serif text-4xl">Sign in to continue</h1>
+          <p className="mt-3 max-w-sm text-sm leading-6 text-muted-foreground">
+            Sign in to view your account and order details.
+          </p>
+          <button
+            type="button"
+            onClick={openAuth}
+            className="mt-6 rounded-full bg-foreground px-5 py-3 text-sm text-background transition-colors hover:bg-clay"
+          >
+            Sign in to your account
+          </button>
+        </main>
+      </StorefrontLayout>
+    );
+  }
+
+  return children;
 }
 
 export function App() {
@@ -144,18 +200,31 @@ export function App() {
           window.location.pathname.startsWith("/admin/") ? (
             <AdminDashboard products={data.products} />
           ) : window.location.pathname === "/settings" ? (
-            <SettingsPage
+            <AuthenticatedRoute
               products={data.products}
               categories={data.categories}
-            />
+            >
+              <SettingsPage
+                products={data.products}
+                categories={data.categories}
+              />
+            </AuthenticatedRoute>
           ) : window.location.pathname.startsWith("/orders/") ? (
-            <OrderTrackingPage
-              orderId={decodeURIComponent(
-                window.location.pathname.split("/").filter(Boolean).at(-1) ?? "",
-              )}
+            <AuthenticatedRoute
               products={data.products}
               categories={data.categories}
-            />
+            >
+              <OrderTrackingPage
+                orderId={decodeURIComponent(
+                  window.location.pathname
+                    .split("/")
+                    .filter(Boolean)
+                    .at(-1) ?? "",
+                )}
+                products={data.products}
+                categories={data.categories}
+              />
+            </AuthenticatedRoute>
           ) : window.location.pathname === "/cart" ? (
             <CartPage products={data.products} />
           ) : window.location.pathname === "/checkout" ? (
