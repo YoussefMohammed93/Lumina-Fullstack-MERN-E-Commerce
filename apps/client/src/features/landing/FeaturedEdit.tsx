@@ -1,12 +1,17 @@
 import { useState } from "react";
-import type { Product } from "@/types/product";
+import type { Category, Product } from "@/types/product";
 import { ProductCard } from "./ProductCard";
 import { Reveal } from "@/components/motion/Reveal";
 import { SectionHeading } from "@/components/SectionHeading";
 import { cn } from "@/lib/utils";
-import { categories } from "@/data/products";
 
-export function FeaturedEdit({ products }: { products: Product[] }) {
+export function FeaturedEdit({
+  products,
+  categories,
+}: {
+  products: Product[];
+  categories: Category[];
+}) {
   const [active, setActive] = useState<string>("All");
 
   const visible =
@@ -38,7 +43,7 @@ export function FeaturedEdit({ products }: { products: Product[] }) {
           aria-label="Filter products by category"
           className="scrollbar-none -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0"
         >
-          {categories.map((category) => {
+          {["All", ...categories.filter((item) => item.isActive).map((item) => item.name)].map((category) => {
             const isActive = active === category;
             return (
               <button

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import type { Collection, Product, Testimonial } from "@/types/product";
+import type { Category, Product, Testimonial } from "@/types/product";
 import {
-  fetchCollections,
+  fetchCategories,
   fetchProducts,
   fetchTestimonials,
 } from "@/services/api";
@@ -29,7 +29,7 @@ import {
 
 interface StoreData {
   products: Product[];
-  collections: Collection[];
+  categories: Category[];
   testimonials: Testimonial[];
 }
 
@@ -44,12 +44,12 @@ export function App() {
     (async () => {
       try {
         setError(null);
-        const [products, collections, testimonials] = await Promise.all([
+        const [products, categories, testimonials] = await Promise.all([
           fetchProducts(),
-          fetchCollections(),
+          fetchCategories(),
           fetchTestimonials(),
         ]);
-        if (!cancelled) setData({ products, collections, testimonials });
+        if (!cancelled) setData({ products, categories, testimonials });
       } catch (err) {
         if (!cancelled) {
           setError(
@@ -135,7 +135,7 @@ export function App() {
               message="Your bag is still saved, so you can return whenever you are ready."
             />
           ) : window.location.pathname === "/shop" ? (
-            <ShopPage products={data.products} />
+            <ShopPage products={data.products} categories={data.categories} />
           ) : window.location.pathname === "/about" ? (
             <AboutPage products={data.products} />
           ) : window.location.pathname === "/shipping-returns" ? (
@@ -169,7 +169,7 @@ export function App() {
           ) : (
             <LandingPage
               products={data.products}
-              collections={data.collections}
+              categories={data.categories}
               testimonials={data.testimonials}
             />
           )}

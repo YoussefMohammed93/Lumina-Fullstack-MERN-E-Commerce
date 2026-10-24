@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Collection, Product, Testimonial } from "@/types/product";
+import type { Category, Product, Testimonial } from "@/types/product";
 import { Nav } from "./Nav";
 import { Hero } from "./Hero";
 import { Marquee } from "./Marquee";
@@ -15,11 +15,11 @@ import { WishlistDrawer } from "./WishlistDrawer";
 
 export function LandingPage({
   products,
-  collections,
+  categories,
   testimonials,
 }: {
   products: Product[];
-  collections: Collection[];
+  categories: Category[];
   testimonials: Testimonial[];
 }) {
   const [cartOpen, setCartOpen] = useState(false);
@@ -52,7 +52,7 @@ export function LandingPage({
             Open product management
           </a>
         </main>
-        <Footer />
+        <Footer categories={categories} />
       </div>
     );
   }
@@ -82,15 +82,15 @@ export function LandingPage({
       <main>
         <Hero featured={featured} />
         <Marquee />
-        <CategoryBento collections={collections} />
-        <FeaturedEdit products={products} />
+        <CategoryBento categories={categories} />
+        <FeaturedEdit products={products} categories={categories} />
         <EditorialFeature />
         <BestSellers products={bestSellers} />
         <Testimonials testimonials={testimonials} />
         <Newsletter />
       </main>
 
-      <Footer />
+      <Footer categories={categories} />
 
       <CartDrawer
         open={cartOpen}

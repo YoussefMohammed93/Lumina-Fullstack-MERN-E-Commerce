@@ -3,7 +3,7 @@ dotenv.config();
 import { connectDB } from "./config/db.js";
 import { Category } from "./models/category.model.js";
 import { Product } from "./models/product.model.js";
-import { products } from "../../client/src/data/products.ts";
+import { collections, products } from "../../client/src/data/products.ts";
 
 async function seed() {
   await connectDB();
@@ -13,9 +13,22 @@ async function seed() {
   const categories = new Map<string, string>();
   for (const [index, name] of categoryNames.entries()) {
     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    const collection = collections.find(
+      (item) => item.eyebrow.split("·").at(-1)?.trim() === name,
+    );
+    const firstProduct = products.find((item) => item.category === name);
     const category = await Category.findOneAndUpdate(
       { slug },
-      { name, slug, isActive: true, sortOrder: index },
+      {
+        name,
+        slug,
+        description:
+          collection?.description ??
+          `Explore thoughtfully selected pieces for ${name.toLowerCase()}.`,
+        image: collection?.image ?? firstProduct?.images[0],
+        isActive: true,
+        sortOrder: index,
+      },
       { upsert: true, new: true },
     );
     categories.set(name, String(category._id));

@@ -1,5 +1,5 @@
 import { ArrowUpRight } from "lucide-react";
-import type { Collection } from "@/types/product";
+import type { Category } from "@/types/product";
 import { Reveal } from "@/components/motion/Reveal";
 import { SectionHeading } from "@/components/SectionHeading";
 
@@ -17,26 +17,19 @@ const ROW_CFG: { indices: number[]; lg: string }[] = [
 const indexToLg = new Map<number, string>();
 ROW_CFG.forEach((r) => r.indices.forEach((i) => indexToLg.set(i, r.lg)));
 
-function collectionHref(collection: Collection) {
-  // Convert labels such as "02 · Dining" to the actual shop category,
-  // "Dining", instead of passing the display number to the filter.
-  const category = collection.eyebrow.replace(/^\d+\s*[^A-Za-z]*\s*/, "");
-  return `/shop?category=${encodeURIComponent(category)}`;
-}
-
 /* Row heights: top & bottom rows taller, middle row slightly shorter */
 const ROW_H: Record<number, string> = {
-  0: "h-[420px]",
-  1: "h-[420px]",
-  2: "h-[340px]",
-  3: "h-[340px]",
-  4: "h-[340px]",
-  5: "h-[420px]",
-  6: "h-[420px]",
+  0: "h-[320px] sm:h-[420px]",
+  1: "h-[320px] sm:h-[420px]",
+  2: "h-[280px] sm:h-[340px]",
+  3: "h-[280px] sm:h-[340px]",
+  4: "h-[280px] sm:h-[340px]",
+  5: "h-[320px] sm:h-[420px]",
+  6: "h-[320px] sm:h-[420px]",
 };
 
-export function CategoryBento({ collections }: { collections: Collection[] }) {
-  const items = collections.slice(0, 7);
+export function CategoryBento({ categories }: { categories: Category[] }) {
+  const items = categories.filter((category) => category.isActive).slice(0, 7);
 
   return (
     <section
@@ -72,24 +65,28 @@ export function CategoryBento({ collections }: { collections: Collection[] }) {
 
         {/* ── Bento grid ── */}
         <div className="grid grid-cols-1 gap-[6px] sm:grid-cols-2 lg:grid-cols-6">
-          {items.map((collection, index) => (
+          {items.map((category, index) => (
             <Reveal
-              key={collection.id}
+              key={category.id}
               delay={index * 90}
               className={`sm:col-span-1 ${indexToLg.get(index)}`}
             >
               <a
-                href={collectionHref(collection)}
+                href={`/shop?category=${encodeURIComponent(category.name)}`}
                 className={`group relative block overflow-hidden rounded-[20px] ${ROW_H[index]}`}
               >
                 {/* ── Full-bleed image ── */}
-                <img
-                  src={collection.image}
-                  alt={collection.title}
-                  loading={index < 2 ? "eager" : "lazy"}
-                  decoding="async"
-                  className="absolute inset-0 h-full w-full object-cover transition-transform duration-[1400ms] ease-luxe group-hover:scale-[1.06]"
-                />
+                {category.image ? (
+                  <img
+                    src={category.image}
+                    alt={category.name}
+                    loading={index < 2 ? "eager" : "lazy"}
+                    decoding="async"
+                    className="absolute inset-0 h-full w-full object-cover transition-transform duration-[1400ms] ease-luxe group-hover:scale-[1.06]"
+                  />
+                ) : (
+                  <div className="absolute inset-0 bg-gradient-to-br from-clay/40 via-muted to-foreground/30" />
+                )}
 
                 {/* ── Gradient overlay — bottom-heavy for text legibility ── */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 via-40% to-transparent" />
@@ -103,13 +100,13 @@ export function CategoryBento({ collections }: { collections: Collection[] }) {
                 <div className="absolute inset-x-0 bottom-0 z-10 flex items-end justify-between gap-4 p-6">
                   <div className="space-y-1.5">
                     <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-white/50">
-                      {collection.eyebrow}
+                      {String(index + 1).padStart(2, "0")} · {category.name}
                     </p>
                     <h3 className="font-serif text-[22px] leading-[1.1] tracking-tight text-white sm:text-[26px]">
-                      {collection.title}
+                      {category.name}
                     </h3>
                     <p className="max-w-[28ch] text-[12px] leading-[1.55] text-white/55">
-                      {collection.description}
+                      {category.description}
                     </p>
                   </div>
 

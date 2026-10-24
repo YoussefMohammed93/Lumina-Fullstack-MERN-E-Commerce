@@ -17,7 +17,7 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import type { Product, ProductStatus } from "@/types/product";
+import type { Category, Product, ProductStatus } from "@/types/product";
 import { apiRequest, authenticatedRequest } from "@/features/auth/auth-client";
 import { useAuth } from "@/features/auth/useAuth";
 import { Button } from "@/components/ui/button";
@@ -58,7 +58,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-const STATIC_CATEGORY = { id: "static-living", name: "Living" };
 type ImageItem = {
   url: string;
   publicId?: string;
@@ -80,6 +79,7 @@ type Draft = {
   name: string;
   slug: string;
   description: string;
+  categoryId: string;
   materials: string;
   dimensions: string;
   status: ProductStatus;
@@ -121,6 +121,7 @@ const productFormSchema = z
       .trim()
       .min(1, "Enter a product description.")
       .max(5000),
+    categoryId: z.string().min(1, "Choose a product category."),
     materials: z.string().max(500, "Materials must be 500 characters or fewer."),
     dimensions: z
       .string()
@@ -198,6 +199,7 @@ const blank = (): Draft => ({
   name: "",
   slug: "",
   description: "",
+  categoryId: "",
   materials: "",
   dimensions: "",
   status: "draft",
@@ -224,6 +226,7 @@ function productDraft(product: AdminProduct): Draft {
     name: product.name,
     slug: product.slug,
     description: product.description,
+    categoryId: product.categoryId ?? "",
     materials: product.materials ?? "",
     dimensions: product.dimensions ?? "",
     status: productStatus(product),
@@ -248,6 +251,7 @@ export function ProductsPage() {
   const { csrfToken } = useAuth();
   const { toast } = useToast();
   const [products, setProducts] = useState<AdminProduct[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<ProductFilter>("all");
   const [sort, setSort] = useState<ProductSort>("newest");
@@ -265,7 +269,12 @@ export function ProductsPage() {
   const load = async () => {
     setError("");
     try {
-      setProducts(await apiRequest<AdminProduct[]>("/admin/products"));
+      const [items, categoryItems] = await Promise.all([
+        apiRequest<AdminProduct[]>("/admin/products"),
+        apiRequest<Category[]>("/admin/categories"),
+      ]);
+      setProducts(items);
+      setCategories(categoryItems);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load products.");
     } finally {
@@ -278,10 +287,14 @@ export function ProductsPage() {
   };
   useEffect(() => {
     let cancelled = false;
-    apiRequest<AdminProduct[]>("/admin/products")
-      .then((items) => {
+    Promise.all([
+      apiRequest<AdminProduct[]>("/admin/products"),
+      apiRequest<Category[]>("/admin/categories"),
+    ])
+      .then(([items, categoryItems]) => {
         if (cancelled) return;
         setProducts(items);
+        setCategories(categoryItems);
         const productToEditId = new URLSearchParams(
           window.location.search,
         ).get("edit");
@@ -374,7 +387,7 @@ export function ProductsPage() {
       const isUpdate = Boolean(draft.id);
       const body = {
         ...draft,
-        categoryId: STATIC_CATEGORY.id,
+        categoryId: draft.categoryId,
         images: draft.images.map((image, sortOrder) => ({
           ...image,
           sortOrder,
@@ -777,6 +790,7 @@ export function ProductsPage() {
       {draft && (
         <ProductDialog
           draft={draft}
+          categories={categories}
           saving={saving}
           error={error}
           onChange={setDraft}
@@ -1240,6 +1254,7 @@ function ProductRow({
 
 function ProductDialog({
   draft,
+  categories,
   saving,
   error,
   onChange,
@@ -1247,6 +1262,7 @@ function ProductDialog({
   onSubmit,
 }: {
   draft: Draft;
+  categories: Category[];
   saving: boolean;
   error: string;
   onChange: (draft: Draft) => void;
@@ -1355,7 +1371,9 @@ function ProductDialog({
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="!h-[92dvh] !max-h-[92dvh] !max-w-3xl !flex !flex-col !gap-4 !overflow-hidden !rounded-md p-4 sm:p-6">
         <DialogHeader>
-          <DialogTitle>{draft.id ? "Edit product" : "Add product"}</DialogTitle>
+          <DialogTitle className="text-lg font-semibold font-sans">
+            {draft.id ? "Edit product" : "Add product"}
+          </DialogTitle>
         </DialogHeader>
         <form onSubmit={submit} noValidate className="min-h-0 flex-1 space-y-6 overflow-y-auto pr-1">
           <section className="grid gap-4 sm:grid-cols-2">
@@ -1380,8 +1398,33 @@ function ProductDialog({
                 }
               />
             </Field>
-            <Field label="Category">
-              <Input value={STATIC_CATEGORY.name} disabled />
+            <Field label="Category" error={validationErrors.categoryId}>
+              <Select
+                value={draft.categoryId || "unselected"}
+                onValueChange={(value) =>
+                  patch(
+                    { categoryId: value === "unselected" ? "" : value },
+                    "categoryId",
+                  )
+                }
+              >
+                <SelectTrigger
+                  className="h-9 rounded-md"
+                  aria-invalid={Boolean(validationErrors.categoryId)}
+                >
+                  <SelectValue placeholder="Choose a category" />
+                </SelectTrigger>
+                <SelectContent className="rounded-md">
+                  <SelectItem value="unselected" disabled>
+                    Choose a category
+                  </SelectItem>
+                  {categories.map((category) => (
+                    <SelectItem key={category.id} value={category.id}>
+                      {category.name}{category.isActive ? "" : " (hidden)"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </Field>
             <Field label="Publishing">
               <Select

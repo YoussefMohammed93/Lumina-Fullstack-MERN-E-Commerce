@@ -7,7 +7,7 @@ import {
   SlidersHorizontal,
   X,
 } from "lucide-react";
-import type { Product } from "@/types/product";
+import type { Category, Product } from "@/types/product";
 import { Drawer } from "@/components/Drawer";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -287,15 +287,24 @@ export function ShopSkeleton() {
   );
 }
 
-export function ShopPage({ products }: { products: Product[] }) {
+export function ShopPage({
+  products,
+  categories,
+}: {
+  products: Product[];
+  categories: Category[];
+}) {
   const [query, setQuery] = useState<ShopQuery>(readQuery);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const [wishlistOpen, setWishlistOpen] = useState(false);
 
-  const categories = useMemo(
-    () => [...new Set(products.map((product) => product.category))].sort(),
-    [products],
+  const categoryNames = useMemo(
+    () =>
+      categories
+        .filter((category) => category.isActive)
+        .map((category) => category.name),
+    [categories],
   );
 
   const change = (patch: Partial<ShopQuery>, resetPage = true) =>
@@ -449,7 +458,7 @@ export function ShopPage({ products }: { products: Product[] }) {
             <FilterControls
               query={query}
               onChange={change}
-              categories={categories}
+              categories={categoryNames}
             />
           </aside>
           <section id="catalog" className="min-w-0">
@@ -592,7 +601,7 @@ export function ShopPage({ products }: { products: Product[] }) {
           </section>
         </div>
       </main>
-      <Footer />
+      <Footer categories={categories} />
       <Drawer
         open={filtersOpen}
         onClose={() => setFiltersOpen(false)}
@@ -621,7 +630,7 @@ export function ShopPage({ products }: { products: Product[] }) {
         <FilterControls
           query={query}
           onChange={change}
-          categories={categories}
+          categories={categoryNames}
         />
       </Drawer>
       <CartDrawer

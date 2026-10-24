@@ -49,8 +49,8 @@ export interface Category {
   slug: string;
   description?: string;
   image?: string;
-  isActive?: boolean;
-  sortOrder?: number;
+  isActive: boolean;
+  sortOrder: number;
 }
 
 export interface Collection {

@@ -338,11 +338,3 @@ export const testimonials: Testimonial[] = [
     avatar: "https://randomuser.me/api/portraits/women/68.jpg",
   },
 ];
-
-export const categories = [
-  "All",
-  "Living",
-  "Dining",
-  "Lighting",
-  "Objects",
-] as const;

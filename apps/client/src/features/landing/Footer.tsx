@@ -1,15 +1,12 @@
+import { useEffect, useState } from "react";
 import { Clock, Mail, MapPin } from "lucide-react";
+import type { Category } from "@/types/product";
+import { fetchCategories } from "@/services/api";
 
 const COLUMNS = [
   {
     title: "Shop",
-    links: [
-      { label: "Living", href: "/shop?category=Living" },
-      { label: "Dining", href: "/shop?category=Dining" },
-      { label: "Lighting", href: "/shop?category=Lighting" },
-      { label: "Objects", href: "/shop?category=Objects" },
-      { label: "Gift cards", href: "/shop" },
-    ],
+    links: [],
   },
   {
     title: "Studio",
@@ -31,7 +28,39 @@ const COLUMNS = [
   },
 ];
 
-export function Footer() {
+export function Footer({ categories }: { categories?: Category[] }) {
+  const [loadedCategories, setLoadedCategories] = useState<Category[]>([]);
+  useEffect(() => {
+    if (categories !== undefined) return;
+    let cancelled = false;
+    fetchCategories()
+      .then((items) => {
+        if (!cancelled) setLoadedCategories(items);
+      })
+      .catch((error: unknown) => {
+        console.error("Unable to load footer categories.", error);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [categories]);
+  const activeCategories = categories ?? loadedCategories;
+  const columns = COLUMNS.map((column) =>
+    column.title === "Shop"
+      ? {
+          ...column,
+          links: [
+            ...activeCategories
+              .filter((category) => category.isActive)
+              .map((category) => ({
+                label: category.name,
+                href: `/shop?category=${encodeURIComponent(category.name)}`,
+              })),
+            { label: "All pieces", href: "/shop" },
+          ],
+        }
+      : column,
+  );
   return (
     <footer className="border-t border-border/70 px-4 pt-16 pb-8 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-6xl space-y-14">
@@ -90,7 +119,7 @@ export function Footer() {
             aria-label="Footer"
             className="grid grid-cols-2 gap-8 sm:grid-cols-3"
           >
-            {COLUMNS.map((column) => (
+            {columns.map((column) => (
               <div key={column.title} className="space-y-4">
                 <p className="eyebrow text-muted-foreground">{column.title}</p>
                 <ul className="space-y-2.5">

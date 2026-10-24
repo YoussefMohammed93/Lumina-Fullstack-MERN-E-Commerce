@@ -48,11 +48,36 @@ router.get("/categories", async (_req, res, next) => {
     const categories = await Category.find({ isActive: true })
       .sort({ sortOrder: 1, name: 1 })
       .lean();
+    const categoriesWithoutImages = categories
+      .filter((category) => !category.image)
+      .map((category) => category._id);
+    const fallbackProducts = categoriesWithoutImages.length
+      ? await Product.find({
+          categoryId: { $in: categoriesWithoutImages },
+          status: "active",
+          trashedAt: null,
+        })
+          .select("categoryId images")
+          .sort({ createdAt: 1 })
+          .lean()
+      : [];
+    const fallbackImages = new Map<string, string>();
+    for (const product of fallbackProducts) {
+      const firstImage = product.images?.[0];
+      const imageUrl =
+        typeof firstImage === "string" ? firstImage : firstImage?.url;
+      if (imageUrl && !fallbackImages.has(String(product.categoryId)))
+        fallbackImages.set(String(product.categoryId), imageUrl);
+    }
     res.json({
       success: true,
       data: categories.map((category) => ({
         ...category,
         id: id(category._id),
+        image: category.image ?? fallbackImages.get(String(category._id)),
+        description:
+          category.description ??
+          `Explore thoughtfully selected pieces for ${category.name.toLowerCase()}.`,
       })),
     });
   } catch (error) {

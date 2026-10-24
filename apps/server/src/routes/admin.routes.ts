@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { createHash } from "node:crypto";
+import { isValidObjectId } from "mongoose";
 import { Category } from "../models/category.model.js";
 import { Order } from "../models/order.model.js";
 import { Product } from "../models/product.model.js";
@@ -107,6 +108,52 @@ async function resolveCategoryId(value: unknown) {
   return category ? String(category._id) : undefined;
 }
 
+function categoryInput(body: any) {
+  const name = text(body?.name);
+  const slug = slugify(text(body?.slug) || name);
+  const description = text(body?.description);
+  const image = text(body?.image);
+  const sortOrderText = String(body?.sortOrder ?? 0).trim();
+  const sortOrder = Number(sortOrderText);
+  let imageUrl: URL | undefined;
+
+  try {
+    imageUrl = new URL(image);
+  } catch {
+    imageUrl = undefined;
+  }
+
+  if (!name || name.length > 100)
+    return { error: "Enter a category name (up to 100 characters)." };
+  if (!slug || slug.length > 100)
+    return { error: "Enter a valid category slug." };
+  if (description.length > 500)
+    return { error: "Description must be 500 characters or fewer." };
+  if (
+    !imageUrl ||
+    image.length > 2048 ||
+    !["http:", "https:"].includes(imageUrl.protocol)
+  )
+    return { error: "Enter a valid category image URL." };
+  if (!sortOrderText)
+    return { error: "Sort order must be a whole number greater than or equal to 0." };
+  if (!Number.isInteger(sortOrder) || sortOrder < 0)
+    return { error: "Sort order must be a whole number greater than or equal to 0." };
+  if (body?.isActive !== undefined && typeof body.isActive !== "boolean")
+    return { error: "Category visibility must be true or false." };
+
+  return {
+    value: {
+      name,
+      slug,
+      description: description || undefined,
+      image,
+      sortOrder,
+      isActive: body?.isActive ?? true,
+    },
+  };
+}
+
 router.get("/dashboard/overview", (_req, res) =>
   res.json({
     success: true,
@@ -125,7 +172,13 @@ router.post("/uploads/signature", requireCsrf, (_req, res) => {
         error: { message: "Cloudinary is not configured." },
       });
   const timestamp = Math.floor(Date.now() / 1000);
-  const folder = "lumina/products";
+  const type = _req.body?.type;
+  if (type !== undefined && type !== "product" && type !== "category")
+    return res.status(400).json({
+      success: false,
+      error: { message: "Choose a valid image upload type." },
+    });
+  const folder = type === "category" ? "lumina/categories" : "lumina/products";
   const signature = createHash("sha1")
     .update(`folder=${folder}&timestamp=${timestamp}${apiSecret}`)
     .digest("hex");
@@ -330,24 +383,89 @@ router.get("/categories", async (_req, res, next) => {
 
 router.post("/categories", requireCsrf, async (req, res, next) => {
   try {
-    const name = text(req.body.name);
-    if (!name)
+    const parsed = categoryInput(req.body);
+    if ("error" in parsed)
       return res.status(400).json({
         success: false,
-        error: { message: "A category name is required." },
+        error: { message: parsed.error },
       });
-    const category = await Category.create({
-      name,
-      slug: slugify(text(req.body.slug) || name),
-      description: text(req.body.description) || undefined,
-      image: text(req.body.image) || undefined,
-      isActive: req.body.isActive !== false,
-      sortOrder: Number(req.body.sortOrder) || 0,
-    });
+    const category = await Category.create(parsed.value);
     res.status(201).json({
       success: true,
       data: { ...category.toObject(), id: String(category._id) },
     });
+  } catch (error: any) {
+    if (error?.code === 11000)
+      return res.status(409).json({
+        success: false,
+        error: { message: "A category with that slug already exists." },
+      });
+    next(error);
+  }
+});
+
+router.patch("/categories/:id", requireCsrf, async (req, res, next) => {
+  try {
+    if (!isValidObjectId(req.params.id))
+      return res.status(400).json({
+        success: false,
+        error: { message: "Choose a valid category." },
+      });
+    const parsed = categoryInput(req.body);
+    if ("error" in parsed)
+      return res.status(400).json({
+        success: false,
+        error: { message: parsed.error },
+      });
+    const category = await Category.findByIdAndUpdate(
+      req.params.id,
+      { $set: parsed.value },
+      { new: true, runValidators: true },
+    ).lean();
+    if (!category)
+      return res.status(404).json({
+        success: false,
+        error: { message: "Category not found." },
+      });
+    res.json({
+      success: true,
+      data: { ...category, id: String(category._id) },
+    });
+  } catch (error: any) {
+    if (error?.code === 11000)
+      return res.status(409).json({
+        success: false,
+        error: { message: "A category with that slug already exists." },
+      });
+    next(error);
+  }
+});
+
+router.delete("/categories/:id", requireCsrf, async (req, res, next) => {
+  try {
+    if (!isValidObjectId(req.params.id))
+      return res.status(400).json({
+        success: false,
+        error: { message: "Choose a valid category." },
+      });
+    const category = await Category.findById(req.params.id);
+    if (!category)
+      return res.status(404).json({
+        success: false,
+        error: { message: "Category not found." },
+      });
+    const productCount = await Product.countDocuments({
+      categoryId: category._id,
+    });
+    if (productCount > 0)
+      return res.status(409).json({
+        success: false,
+        error: {
+          message: `This category is assigned to ${productCount} product${productCount === 1 ? "" : "s"}. Reassign them before deleting it.`,
+        },
+      });
+    await category.deleteOne();
+    res.json({ success: true, data: { id: String(category._id) } });
   } catch (error) {
     next(error);
   }

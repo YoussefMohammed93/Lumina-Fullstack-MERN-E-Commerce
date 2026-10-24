@@ -1,10 +1,10 @@
 import type {
-  Collection,
+  Category,
   ProductsApiResponse,
   Product,
   Testimonial,
 } from "../types/product";
-import { collections, testimonials } from "../data/products";
+import { testimonials } from "../data/products";
 
 type Envelope<T> = { success: boolean; data?: T; error?: { message?: string } };
 
@@ -39,8 +39,8 @@ export function getProductBySlug(
 
 export type { ProductsApiResponse };
 
-export async function fetchCollections(): Promise<Collection[]> {
-  return collections;
+export async function fetchCategories(): Promise<Category[]> {
+  return request<Category[]>("/categories");
 }
 
 export async function fetchTestimonials(): Promise<Testimonial[]> {
