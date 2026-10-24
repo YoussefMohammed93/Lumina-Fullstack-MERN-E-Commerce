@@ -228,7 +228,12 @@ export function App() {
           ) : window.location.pathname === "/cart" ? (
             <CartPage products={data.products} />
           ) : window.location.pathname === "/checkout" ? (
-            <CheckoutPage products={data.products} />
+            <StorefrontLayout
+              products={data.products}
+              categories={data.categories}
+            >
+              <CheckoutPage products={data.products} />
+            </StorefrontLayout>
           ) : window.location.pathname === "/checkout/success" ? (
             <StripeCheckoutSuccessPage />
           ) : window.location.pathname === "/checkout/cancel" ? (

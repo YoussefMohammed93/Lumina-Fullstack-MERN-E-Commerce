@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { isValidObjectId } from "mongoose";
 import { Category } from "../models/category.model.js";
 import { Order } from "../models/order.model.js";
@@ -15,9 +15,16 @@ import {
   normalizedFulfillmentStatus,
   orderCreatedAt,
   orderNumberForId,
+  paidRevenueByMonth,
   paidRevenueTotal,
 } from "../lib/orders.js";
 import type { OrderFulfillmentStatus } from "../models/order.model.js";
+import {
+  notifyLowStock,
+  notifyOrderPayment,
+  notifyOrderStatus,
+} from "../lib/notifications.js";
+import { LOW_STOCK_THRESHOLD } from "../lib/inventory.js";
 
 const router = Router();
 
@@ -194,10 +201,98 @@ function categoryInput(body: any) {
 
 router.get("/dashboard/overview", async (_req, res, next) => {
   try {
-    const paidRevenue = await paidRevenueTotal();
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const [
+      paidRevenue,
+      revenueByMonth,
+      totalOrders,
+      totalCustomers,
+      productsSoldAggregate,
+      ordersToFulfill,
+      lowStockProducts,
+      failedPayments,
+      newCustomers,
+      recentOrders,
+    ] = await Promise.all([
+      paidRevenueTotal(),
+      paidRevenueByMonth(),
+      Order.countDocuments(),
+      User.countDocuments({ role: "user" }),
+      Order.aggregate([
+        {
+          $match: {
+            paymentStatus: { $in: ["paid", "awaiting_cod"] },
+            fulfillmentStatus: { $ne: "cancelled" },
+          },
+        },
+        { $unwind: "$items" },
+        { $group: { _id: null, quantity: { $sum: "$items.quantity" } } },
+      ]),
+      Order.countDocuments({
+        fulfillmentStatus: { $nin: ["delivered", "cancelled"] },
+      }),
+      Product.countDocuments({
+        status: "active",
+        trashedAt: null,
+        variants: {
+          $elemMatch: {
+            isActive: true,
+            stock: { $lte: LOW_STOCK_THRESHOLD },
+          },
+        },
+      }),
+      Order.countDocuments({ paymentStatus: "failed" }),
+      User.countDocuments({ role: "user", createdAt: { $gte: weekAgo } }),
+      Order.find()
+        .sort({ createdAt: -1, _id: -1 })
+        .limit(4)
+        .select("userId orderNumber items amountTotal currency paymentStatus fulfillmentStatus shippingAddress createdAt")
+        .lean(),
+    ]);
+    const recentUsers = await User.find({
+      _id: { $in: recentOrders.map((order) => order.userId) },
+    })
+      .select("name username")
+      .lean();
+    const recentUsersById = new Map(
+      recentUsers.map((customer) => [String(customer._id), customer]),
+    );
+
     res.json({
       success: true,
-      data: { paidRevenue },
+      data: {
+        paidRevenue,
+        revenueByMonth,
+        totalOrders,
+        totalCustomers,
+        productsSold: productsSoldAggregate[0]?.quantity ?? 0,
+        ordersToFulfill,
+        lowStockProducts,
+        failedPayments,
+        newCustomers,
+        recentOrders: recentOrders.map((order) => {
+          const customer = recentUsersById.get(String(order.userId));
+          const orderId = String(order._id);
+          return {
+            id: orderId,
+            orderNumber: order.orderNumber ?? orderNumberForId(orderId),
+            customer: order.shippingAddress?.name ??
+              customer?.name ??
+              customer?.username ??
+              "Customer",
+            itemCount: order.items.reduce(
+              (count, item) => count + item.quantity,
+              0,
+            ),
+            total: order.amountTotal,
+            currency: order.currency,
+            paymentStatus: order.paymentStatus,
+            fulfillmentStatus: normalizedFulfillmentStatus(
+              order.fulfillmentStatus,
+            ),
+          };
+        }),
+      },
     });
   } catch (error) {
     next(error);
@@ -313,6 +408,12 @@ router.patch("/products/:id", requireCsrf, async (req, res, next) => {
     const categoryId = await resolveCategoryId(req.body.categoryId);
     if (!categoryId)
       return res.status(400).json({ success: false, error: { message: "Choose a valid category." } });
+    const existing = await Product.findOne({
+      _id: req.params.id,
+      trashedAt: null,
+    })
+      .select("name variants.sku variants.stock")
+      .lean();
     const product = await Product.findOneAndUpdate(
       { _id: req.params.id, trashedAt: null },
       payload({ ...req.body, categoryId }),
@@ -322,6 +423,25 @@ router.patch("/products/:id", requireCsrf, async (req, res, next) => {
       return res
         .status(404)
         .json({ success: false, error: { message: "Product not found." } });
+    const oldStockBySku = new Map(
+      (existing?.variants ?? []).map((variant) => [variant.sku, variant.stock]),
+    );
+    const lowStockEvents = product.variants.flatMap((variant) => {
+      const previousStock = oldStockBySku.get(variant.sku);
+      return previousStock !== undefined &&
+        previousStock > LOW_STOCK_THRESHOLD &&
+        variant.stock <= LOW_STOCK_THRESHOLD
+        ? [
+            notifyLowStock({
+              eventKey: `low-stock:${product.id}:${variant.sku}:${randomUUID()}`,
+              productName: product.name,
+              sku: variant.sku,
+              stock: variant.stock,
+            }),
+          ]
+        : [];
+    });
+    await Promise.all(lowStockEvents);
     res.json({ success: true, data: presentProduct(product) });
   } catch (error: any) {
     if (error?.code === 11000)
@@ -885,6 +1005,21 @@ router.patch("/orders/:id/status", requireCsrf, async (req, res, next) => {
         return res
           .status(404)
           .json({ success: false, error: { message: "Order not found." } });
+      if (changed)
+        await notifyOrderStatus({
+          orderId: String(order._id),
+          orderNumber: order.orderNumber ?? orderNumberForId(String(order._id)),
+          status,
+          changedAt,
+          paymentCollected: collectedCashOnDelivery,
+        });
+      else if (collectedCashOnDelivery)
+        await notifyOrderPayment({
+          orderId: String(order._id),
+          orderNumber:
+            order.orderNumber ?? orderNumberForId(String(order._id)),
+          paymentStatus: "paid",
+        });
 
       return res.json({
         success: true,

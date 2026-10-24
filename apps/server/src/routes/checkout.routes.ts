@@ -2,9 +2,19 @@ import { Router } from "express";
 import { Cart } from "../models/commerce.model.js";
 import { Order } from "../models/order.model.js";
 import { Product } from "../models/product.model.js";
+import { User } from "../models/user.model.js";
 import { getStripe } from "../lib/stripe.js";
 import { requireAuth, requireCsrf } from "../middleware/auth.middleware.js";
-import { createOrderRecord, stripeShippingAddress } from "../lib/orders.js";
+import {
+  createOrderRecord,
+  orderNumberForId,
+  stripeShippingAddress,
+} from "../lib/orders.js";
+import {
+  notifyNewOrder,
+  notifyOrderPayment,
+  notifyOrderStatus,
+} from "../lib/notifications.js";
 import {
   inventoryForOrderItems,
   reserveInventory,
@@ -156,6 +166,12 @@ router.post("/checkout/stripe", requireCsrf, async (req, res, next) => {
     });
 
     if (!session.url) throw new Error("Stripe did not return a checkout URL.");
+    await notifyNewOrder({
+      orderId: String(order._id),
+      orderNumber: order.orderNumber ?? orderNumberForId(String(order._id)),
+      customer: req.user!.name || req.user!.username,
+      amountTotal: order.amountTotal,
+    });
     reservedItems = [];
     res.status(201).json({ success: true, data: { url: session.url } });
   } catch (error) {
@@ -258,6 +274,23 @@ router.post(
           country: "EG",
         },
       });
+      try {
+        await User.updateOne(
+          { _id: req.user!._id },
+          { $set: { savedAddress: order.shippingAddress } },
+        );
+      } catch (addressError) {
+        console.error(
+          "Unable to save the delivery address to the customer profile.",
+          addressError,
+        );
+      }
+      await notifyNewOrder({
+        orderId: String(order._id),
+        orderNumber: order.orderNumber ?? orderNumberForId(String(order._id)),
+        customer: name,
+        amountTotal: order.amountTotal,
+      });
       reservedItems = [];
 
       await Cart.updateOne({ userId: req.user!._id }, { $set: { items: [] } });
@@ -300,6 +333,14 @@ router.get("/checkout/stripe/session/:sessionId", async (req, res, next) => {
       (session.metadata?.userId ?? "") === String(req.user!._id)
     ) {
       const shippingAddress = stripeShippingAddress(session);
+      if (shippingAddress?.line1) {
+        await User.updateOne(
+          { _id: req.user!._id },
+          { $set: { savedAddress: shippingAddress } },
+        );
+      }
+      const changedAt = new Date();
+      const paymentChanged = order.paymentStatus !== "paid";
       const paymentIntentId =
         typeof session.payment_intent === "string"
           ? session.payment_intent
@@ -314,22 +355,35 @@ router.get("/checkout/stripe/session/:sessionId", async (req, res, next) => {
           },
         },
       );
+      if (paymentChanged)
+        await notifyOrderPayment({
+          orderId: String(order._id),
+          orderNumber:
+            order.orderNumber ?? orderNumberForId(String(order._id)),
+          paymentStatus: "paid",
+        });
       if (
         order.fulfillmentStatus === "placed" ||
         order.fulfillmentStatus === "pending"
       ) {
-        await Order.updateOne(
+        const statusUpdate = await Order.updateOne(
           {
             _id: order._id,
             fulfillmentStatus: { $in: ["placed", "pending"] },
           },
           {
             $set: { fulfillmentStatus: "confirmed" },
-            $push: {
-              statusHistory: { status: "confirmed", at: new Date() },
-            },
+            $push: { statusHistory: { status: "confirmed", at: changedAt } },
           },
         );
+        if (statusUpdate.modifiedCount === 1)
+          await notifyOrderStatus({
+            orderId: String(order._id),
+            orderNumber:
+              order.orderNumber ?? orderNumberForId(String(order._id)),
+            status: "confirmed",
+            changedAt,
+          });
       }
       order = await Order.findById(order._id).lean();
     }

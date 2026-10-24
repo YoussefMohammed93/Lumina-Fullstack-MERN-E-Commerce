@@ -52,6 +52,7 @@ export function Footer({ categories }: { categories?: Category[] }) {
           links: [
             ...activeCategories
               .filter((category) => category.isActive)
+              .slice(0, 4)
               .map((category) => ({
                 label: category.name,
                 href: `/shop?category=${encodeURIComponent(category.name)}`,

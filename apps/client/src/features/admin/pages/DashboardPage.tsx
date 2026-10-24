@@ -3,7 +3,7 @@ import {
   ChevronRight,
   CircleAlert,
   CircleDollarSign,
-  MessageCircle,
+  CreditCard,
   Package,
   ShoppingBag,
   TrendingUp,
@@ -12,8 +12,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/features/admin/components/PageHeader";
 import { formatPrice } from "@/services/api";
+import type { AdminDashboardOverview } from "../admin-dashboard-service";
 
 const palette = {
   green: { backgroundColor: "#dcfce7", color: "#15803d" },
@@ -22,117 +24,247 @@ const palette = {
   amber: { backgroundColor: "#fef3c7", color: "#b45309" },
   red: { backgroundColor: "#fee2e2", color: "#b91c1c" },
 };
-const metrics = [
-  {
-    label: "Paid revenue",
-    value: "EGP 84,520",
-    detail: "+12.5% from last month",
-    icon: CircleDollarSign,
-    tone: palette.green,
-  },
-  {
-    label: "Orders",
-    value: "268",
-    detail: "+8.2% from last month",
-    icon: ShoppingBag,
-    tone: palette.blue,
-  },
-  {
-    label: "Customers",
-    value: "1,429",
-    detail: "+18.4% from last month",
-    icon: Users,
-    tone: palette.violet,
-  },
-  {
-    label: "Products sold",
-    value: "496",
-    detail: "+5.7% from last month",
-    icon: Package,
-    tone: palette.amber,
-  },
-];
-const storeTasks = [
-  {
-    count: "12",
-    label: "Orders to fulfil",
-    icon: ShoppingBag,
-    tone: palette.amber,
-    href: "/admin/orders",
-  },
-  {
-    count: "3",
-    label: "Products low in stock",
-    icon: CircleAlert,
-    tone: palette.red,
-    href: "/admin/inventory",
-  },
-  {
-    count: "5",
-    label: "Customer messages",
-    icon: MessageCircle,
-    tone: palette.blue,
-    href: "/admin/customers",
-  },
-  {
-    count: "2",
-    label: "Returns to review",
-    icon: Package,
-    tone: palette.violet,
-    href: "/admin/orders",
-  },
-];
-const orders = [
-  {
-    order: "#LM-2048",
-    customer: "Mariam A.",
-    items: "3 items",
-    total: "EGP 1,840",
-    status: "Paid",
-    tone: palette.violet,
-  },
-  {
-    order: "#LM-2047",
-    customer: "Omar K.",
-    items: "1 item",
-    total: "EGP 720",
-    status: "Processing",
-    tone: palette.blue,
-  },
-  {
-    order: "#LM-2046",
-    customer: "Nour S.",
-    items: "2 items",
-    total: "EGP 1,280",
-    status: "Paid",
-    tone: palette.amber,
-  },
-  {
-    order: "#LM-2045",
-    customer: "Youssef M.",
-    items: "4 items",
-    total: "EGP 2,410",
-    status: "Paid",
-    tone: palette.green,
-  },
-];
+
+const metricIcons = {
+  "Paid revenue": { icon: CircleDollarSign, tone: palette.green },
+  Orders: { icon: ShoppingBag, tone: palette.blue },
+  Customers: { icon: Users, tone: palette.violet },
+  "Products sold": { icon: Package, tone: palette.amber },
+};
+
+interface DashboardPageProps {
+  userName: string;
+  overview: AdminDashboardOverview | null;
+  loading: boolean;
+  error: string | null;
+  onRetry: () => void;
+}
+
+function DashboardContentSkeleton() {
+  return (
+    <>
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Loading overview metrics">
+        {Array.from({ length: 4 }, (_, index) => (
+          <Card
+            key={index}
+            className="rounded-md border-0 shadow-none ring-1 ring-foreground/8"
+          >
+            <CardHeader className="flex-row items-center justify-between space-y-0">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="size-9 rounded-xl" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-8 w-36" />
+              <Skeleton className="mt-3 h-3 w-48" />
+            </CardContent>
+          </Card>
+        ))}
+      </section>
+
+      <section className="grid gap-5 xl:grid-cols-[minmax(0,1.5fr)_minmax(280px,0.75fr)]">
+        <Card className="rounded-md border-0 shadow-none ring-1 ring-foreground/8">
+          <CardHeader className="flex-row items-start justify-between">
+            <div className="space-y-2">
+              <Skeleton className="h-8 w-56" />
+              <Skeleton className="h-4 w-32" />
+            </div>
+            <Skeleton className="mt-2 h-6 w-24 rounded-full" />
+          </CardHeader>
+          <CardContent>
+            <div className="flex h-52 items-end gap-2 pt-4" aria-hidden="true">
+              {[35, 55, 42, 70, 50, 85].map((height, index) => (
+                <div key={index} className="flex h-full flex-1 items-end">
+                  <Skeleton
+                    className="w-full rounded-t-md"
+                    style={{ height: `${height}%` }}
+                  />
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-md border-0 bg-card text-card-foreground shadow-none ring-1 ring-foreground/8">
+          <CardHeader className="space-y-2">
+            <Skeleton className="h-8 w-36" />
+            <Skeleton className="h-4 w-40" />
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {Array.from({ length: 4 }, (_, index) => (
+              <div
+                key={index}
+                className="flex items-center justify-between rounded-md px-2 py-2.5"
+              >
+                <span className="flex items-center gap-2.5">
+                  <Skeleton className="size-7 rounded-full" />
+                  <Skeleton className="h-4 w-36" />
+                </span>
+                <Skeleton className="h-7 w-8" />
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </section>
+
+      <Card className="rounded-md border-0 shadow-none ring-1 ring-foreground/8">
+        <CardHeader className="admin-orders-header">
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-44" />
+            <Skeleton className="h-4 w-64" />
+          </div>
+          <Skeleton className="h-9 w-full rounded-xl sm:w-24" />
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 md:grid-cols-2">
+            {Array.from({ length: 4 }, (_, index) => (
+              <div
+                key={index}
+                className="rounded-md border border-border bg-background p-4"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="size-10 rounded-full" />
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-28" />
+                      <Skeleton className="h-3 w-36" />
+                    </div>
+                  </div>
+                  <Skeleton className="h-6 w-20 rounded-full" />
+                </div>
+                <div className="mt-4 flex items-end justify-between border-t border-border pt-3">
+                  <div className="space-y-2">
+                    <Skeleton className="h-3 w-20" />
+                    <Skeleton className="h-6 w-24" />
+                  </div>
+                  <Skeleton className="h-4 w-20" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </>
+  );
+}
 
 export function DashboardPage({
   userName,
-  paidRevenue,
-  revenueError,
-}: {
-  userName: string;
-  paidRevenue: number | null;
-  revenueError: string | null;
-}) {
-  const revenueLabel = paidRevenue === null ? "—" : formatPrice(paidRevenue);
+  overview,
+  loading,
+  error,
+  onRetry,
+}: DashboardPageProps) {
+  const revenueLabel =
+    overview === null ? "—" : formatPrice(overview.paidRevenue);
+  const loadingDetail = loading ? "Loading…" : "Data unavailable";
+  const ordersToFulfill = overview?.ordersToFulfill;
+  const newCustomers = overview?.newCustomers;
+  const productsSold = overview?.productsSold;
+  const metrics = [
+    {
+      label: "Paid revenue",
+      value: revenueLabel,
+      detail: overview
+        ? overview.paidRevenue > 0
+          ? "From paid orders, including delivered cash on delivery"
+          : "No paid revenue recorded yet"
+        : loadingDetail,
+      ...metricIcons["Paid revenue"],
+    },
+    {
+      label: "Orders",
+      value: overview?.totalOrders.toLocaleString() ?? "—",
+      detail:
+        ordersToFulfill === undefined
+          ? loadingDetail
+          : ordersToFulfill === 0
+            ? "All orders are fulfilled"
+            : `${ordersToFulfill.toLocaleString()} order${ordersToFulfill === 1 ? "" : "s"} to fulfil`,
+      ...metricIcons.Orders,
+    },
+    {
+      label: "Customers",
+      value: overview?.totalCustomers.toLocaleString() ?? "—",
+      detail:
+        newCustomers === undefined
+          ? loadingDetail
+          : newCustomers === 0
+            ? "No new customers in the last 7 days"
+            : `${newCustomers.toLocaleString()} new customer${newCustomers === 1 ? "" : "s"} in the last 7 days`,
+      ...metricIcons.Customers,
+    },
+    {
+      label: "Products sold",
+      value: overview?.productsSold.toLocaleString() ?? "—",
+      detail:
+        productsSold === undefined
+          ? loadingDetail
+          : productsSold === 0
+            ? "No units sold yet"
+            : `${productsSold.toLocaleString()} unit${productsSold === 1 ? "" : "s"} across paid and COD orders`,
+      ...metricIcons["Products sold"],
+    },
+  ];
+  const tasks = [
+    {
+      count: overview?.ordersToFulfill.toLocaleString() ?? "—",
+      label: "Orders to fulfil",
+      icon: ShoppingBag,
+      tone: palette.amber,
+      href: "/admin/orders",
+    },
+    {
+      count: overview?.lowStockProducts.toLocaleString() ?? "—",
+      label: "Products low in stock",
+      icon: CircleAlert,
+      tone: palette.red,
+      href: "/admin/products",
+    },
+    {
+      count: overview?.failedPayments.toLocaleString() ?? "—",
+      label: "Failed payments",
+      icon: CreditCard,
+      tone: palette.blue,
+      href: "/admin/orders",
+    },
+    {
+      count: overview?.newCustomers.toLocaleString() ?? "—",
+      label: "New customers this week",
+      icon: Users,
+      tone: palette.violet,
+      href: "/admin/customers",
+    },
+  ];
+  const maxRevenue = Math.max(
+    ...(overview?.revenueByMonth.map((month) => month.amount) ?? []),
+    1,
+  );
+
+  if (loading) {
+    return (
+      <div className="space-y-7">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div className="w-full">
+            <Skeleton className="h-3 w-40" />
+            <Skeleton className="mt-2 h-12 w-[min(38rem,90vw)] md:h-[3.75rem]" />
+            <Skeleton className="mt-3 h-4 w-[min(32rem,90vw)]" />
+          </div>
+          <Skeleton className="h-11 w-32 shrink-0 rounded-xl" />
+        </div>
+        <DashboardContentSkeleton />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-7">
       <PageHeader
         title={`Good morning, ${userName}.`}
-        description="Here's the latest from your store. You have 12 orders waiting to be fulfilled."
+        description={
+          overview
+            ? `Here's the latest from your store. You have ${overview.ordersToFulfill.toLocaleString()} orders waiting to be fulfilled.`
+            : "Here's the latest from your store."
+        }
         action={
           <Button className="rounded-xl" asChild>
             <a href="/admin/products">
@@ -141,12 +273,19 @@ export function DashboardPage({
           </Button>
         }
       />
-      {revenueError && (
+      {error && (
         <p
           role="alert"
           className="rounded-md border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive"
         >
-          {revenueError}
+          {error}{" "}
+          <button
+            type="button"
+            className="ml-1 font-semibold underline underline-offset-2"
+            onClick={onRetry}
+          >
+            Try again
+          </button>
         </p>
       )}
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -170,7 +309,7 @@ export function DashboardPage({
               </CardHeader>
               <CardContent>
                 <p className="text-[1.75rem] leading-none font-semibold tracking-tight">
-                  {metric.label === "Paid revenue" ? revenueLabel : metric.value}
+                  {metric.value}
                 </p>
                 <p className="mt-2 flex items-center gap-1 text-xs font-medium text-muted-foreground">
                   <TrendingUp
@@ -178,9 +317,7 @@ export function DashboardPage({
                     style={{ color: metric.tone.color }}
                     strokeWidth={2.25}
                   />
-                  {metric.label === "Paid revenue"
-                    ? "Paid orders, including delivered cash on delivery"
-                    : metric.detail}
+                  {metric.detail}
                 </p>
               </CardContent>
             </Card>
@@ -195,7 +332,7 @@ export function DashboardPage({
                 Paid revenue overview
               </CardTitle>
               <p className="mt-1 text-xs sm:text-sm font-medium text-muted-foreground">
-                All-time paid orders
+                Monthly paid orders
               </p>
             </div>
             <Badge variant="secondary" className="font-semibold mt-2">
@@ -205,29 +342,32 @@ export function DashboardPage({
           <CardContent>
             <div
               className="flex h-52 items-end gap-2 pt-4"
-              aria-label="Revenue trend chart"
+              aria-label="Monthly paid revenue chart"
             >
-              {[35, 48, 42, 58, 51, 72, 62, 76, 68, 88, 74, 94].map(
-                (height, index) => (
-                  <div key={index} className="flex h-full flex-1 items-end">
+              {(overview?.revenueByMonth ?? []).map((month) => {
+                const height = Math.max((month.amount / maxRevenue) * 100, 2);
+                return (
+                  <div
+                    key={month.label}
+                    className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-2"
+                    title={`${month.label}: ${formatPrice(month.amount)}`}
+                  >
                     <div
                       style={{
                         height: `${height}%`,
                         backgroundColor:
-                          index === 11 ? "var(--primary)" : "var(--secondary)",
+                          month === overview?.revenueByMonth.at(-1)
+                            ? "var(--primary)"
+                            : "var(--secondary)",
                       }}
                       className="w-full rounded-t-md transition-opacity hover:opacity-70"
                     />
+                    <span className="truncate text-[11px] font-medium text-muted-foreground">
+                      {month.label}
+                    </span>
                   </div>
-                ),
-              )}
-            </div>
-            <div className="mt-3 flex justify-between text-[11px] font-medium text-muted-foreground">
-              <span>Sep 20</span>
-              <span>Sep 27</span>
-              <span>Oct 4</span>
-              <span>Oct 11</span>
-              <span>Today</span>
+                );
+              })}
             </div>
           </CardContent>
         </Card>
@@ -243,7 +383,7 @@ export function DashboardPage({
             </div>
           </CardHeader>
           <CardContent className="space-y-2">
-            {storeTasks.map(({ count, label, icon: Icon, tone, href }) => (
+            {tasks.map(({ count, label, icon: Icon, tone, href }) => (
               <a
                 href={href}
                 key={label}
@@ -288,49 +428,71 @@ export function DashboardPage({
         </CardHeader>
         <CardContent>
           <div className="grid gap-3 md:grid-cols-2">
-            {orders.map(({ order, customer, items, total, status, tone }) => (
-              <a
-                href="/admin/orders"
-                key={order}
-                className="group rounded-md border border-border bg-background p-4 transition-colors hover:bg-muted"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <span
-                      className="grid size-10 place-items-center rounded-full text-sm font-semibold"
+            {(overview?.recentOrders ?? []).map((order, index) => {
+              const tone =
+                order.fulfillmentStatus === "delivered"
+                  ? palette.green
+                  : order.fulfillmentStatus === "cancelled" ||
+                      order.paymentStatus === "failed"
+                    ? palette.red
+                    : order.fulfillmentStatus === "processing" ||
+                        order.fulfillmentStatus === "confirmed"
+                      ? palette.blue
+                      : palette.amber;
+              const fulfillmentLabel = order.fulfillmentStatus
+                .replaceAll("_", " ")
+                .replace(/\b\w/g, (letter) => letter.toUpperCase());
+
+              return (
+                <a
+                  href={`/admin/orders?search=${encodeURIComponent(order.orderNumber)}`}
+                  key={order.id}
+                  className="group rounded-md border border-border bg-background p-4 transition-colors hover:bg-muted"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <span
+                        className="grid size-10 place-items-center rounded-full text-sm font-semibold"
+                        style={[palette.violet, palette.blue, palette.amber, palette.green][index]}
+                      >
+                        {order.customer.slice(0, 1)}
+                      </span>
+                      <div>
+                        <p className="font-semibold">{order.customer}</p>
+                        <p className="mt-0.5 text-xs font-medium text-muted-foreground">
+                          {order.orderNumber} · {order.itemCount}{" "}
+                          {order.itemCount === 1 ? "item" : "items"}
+                        </p>
+                      </div>
+                    </div>
+                    <Badge
+                      className="border-0 font-semibold capitalize"
                       style={tone}
                     >
-                      {customer.slice(0, 1)}
-                    </span>
+                      {fulfillmentLabel}
+                    </Badge>
+                  </div>
+                  <div className="mt-4 flex items-end justify-between border-t border-border pt-3">
                     <div>
-                      <p className="font-semibold">{customer}</p>
-                      <p className="mt-0.5 text-xs font-medium text-muted-foreground">
-                        {order} · {items}
+                      <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+                        Order total
+                      </p>
+                      <p className="mt-1 tabular text-lg font-semibold">
+                        {formatPrice(order.total, order.currency)}
                       </p>
                     </div>
+                    <span className="flex items-center gap-1 text-xs font-semibold text-muted-foreground transition-colors group-hover:text-foreground">
+                      Open order <ChevronRight className="size-3.5" />
+                    </span>
                   </div>
-                  <Badge
-                    className="border-0 font-semibold"
-                    style={status === "Paid" ? palette.green : palette.amber}
-                  >
-                    {status}
-                  </Badge>
-                </div>
-                <div className="mt-4 flex items-end justify-between border-t border-border pt-3">
-                  <div>
-                    <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
-                      Order total
-                    </p>
-                    <p className="mt-1 tabular text-lg font-semibold">
-                      {total}
-                    </p>
-                  </div>
-                  <span className="flex items-center gap-1 text-xs font-semibold text-muted-foreground transition-colors group-hover:text-foreground">
-                    Open order <ChevronRight className="size-3.5" />
-                  </span>
-                </div>
-              </a>
-            ))}
+                </a>
+              );
+            })}
+            {overview && overview.recentOrders.length === 0 && (
+              <p className="py-8 text-center text-sm text-muted-foreground md:col-span-2">
+                No orders have been placed yet.
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>

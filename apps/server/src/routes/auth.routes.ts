@@ -1,17 +1,26 @@
 import { Router } from "express";
 import type { Types } from "mongoose";
 import { OAuth2Client } from "google-auth-library";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { Session } from "../models/session.model.js";
-import { User } from "../models/user.model.js";
+import {
+  User,
+  type ISavedAddress,
+  type IUserPreferences,
+} from "../models/user.model.js";
 import {
   hashPassword,
   randomToken,
   tokenHash,
   verifyPassword,
 } from "../lib/auth.js";
-import { COOKIE_NAME, requireAuth } from "../middleware/auth.middleware.js";
+import {
+  COOKIE_NAME,
+  requireAuth,
+  requireCsrf,
+} from "../middleware/auth.middleware.js";
 import { authRateLimit } from "../middleware/rate-limit.middleware.js";
+import { notifyNewCustomer } from "../lib/notifications.js";
 
 const router = Router();
 const SESSION_DAYS = 14;
@@ -29,6 +38,9 @@ const publicUser = (user: {
   username: string;
   name?: string;
   email: string;
+  phone?: string;
+  savedAddress?: ISavedAddress;
+  preferences?: IUserPreferences;
   role: string;
   avatarUrl?: string;
 }) => ({
@@ -36,6 +48,23 @@ const publicUser = (user: {
   username: user.username,
   name: user.name,
   email: user.email,
+  phone: user.phone,
+  savedAddress: user.savedAddress
+    ? {
+        name: user.savedAddress.name,
+        phone: user.savedAddress.phone,
+        governorate: user.savedAddress.governorate,
+        line1: user.savedAddress.line1,
+        line2: user.savedAddress.line2,
+        city: user.savedAddress.city,
+        postalCode: user.savedAddress.postalCode,
+        country: user.savedAddress.country,
+      }
+    : undefined,
+  preferences: {
+    orderUpdates: user.preferences?.orderUpdates ?? false,
+    studioLetters: user.preferences?.studioLetters ?? false,
+  },
   role: user.role,
   avatarUrl: user.avatarUrl,
 });
@@ -103,6 +132,10 @@ router.post("/register", authRateLimit, async (req, res, next) => {
       username,
       email,
       passwordHash: await hashPassword(password),
+    });
+    await notifyNewCustomer({
+      userId: String(user._id),
+      customer: user.name || user.username,
     });
 
     const session = await createSession(user._id);
@@ -192,11 +225,12 @@ router.post("/google", authRateLimit, async (req, res, next) => {
     const avatarUrl = googleAvatarUrl(payload.picture);
 
     let user = await User.findOne({ googleSubject: payload.sub });
+    let createdNewCustomer = false;
 
     if (user) {
-      // Google is the source of truth for its verified profile fields.
-      if (name) user.name = name;
-      if (avatarUrl) user.avatarUrl = avatarUrl;
+      if (name && !user.name) user.name = name;
+      if (avatarUrl && !user.avatarUrl && !user.avatarPublicId)
+        user.avatarUrl = avatarUrl;
       await user.save();
     } else {
       user = await User.findOne({ email });
@@ -214,9 +248,10 @@ router.post("/google", authRateLimit, async (req, res, next) => {
       if (user) {
         user.googleSubject = payload.sub;
 
-        if (name) user.name = name;
+        if (name && !user.name) user.name = name;
 
-        if (avatarUrl) user.avatarUrl = avatarUrl;
+        if (avatarUrl && !user.avatarUrl && !user.avatarPublicId)
+          user.avatarUrl = avatarUrl;
 
         await user.save();
       } else {
@@ -228,8 +263,15 @@ router.post("/google", authRateLimit, async (req, res, next) => {
           avatarUrl,
           role: "user",
         });
+        createdNewCustomer = true;
       }
     }
+
+    if (createdNewCustomer)
+      await notifyNewCustomer({
+        userId: String(user._id),
+        customer: user.name || user.username,
+      });
 
     if (user.status !== "active")
       return res.status(401).json({
@@ -258,6 +300,186 @@ router.get("/me", requireAuth, (req, res) =>
 router.get("/csrf", requireAuth, (req, res) => {
   res.json({ success: true, data: { csrfToken: req.csrfToken } });
 });
+
+router.patch("/profile", requireAuth, requireCsrf, async (req, res, next) => {
+  try {
+    const body = req.body as Record<string, unknown> | null;
+    const name = typeof body?.name === "string" ? body.name.trim() : "";
+    const phone = typeof body?.phone === "string" ? body.phone.trim() : "";
+    if (!name || name.length > 80)
+      return res.status(400).json({
+        success: false,
+        error: { message: "Enter a name between 1 and 80 characters." },
+      });
+    if (phone && !/^\+?[0-9().\s-]{7,32}$/.test(phone))
+      return res.status(400).json({
+        success: false,
+        error: { message: "Enter a valid phone number." },
+      });
+
+    const update: {
+      $set: Record<string, unknown>;
+      $unset?: Record<string, "">;
+    } = { $set: { name } };
+    if (phone) update.$set.phone = phone;
+    else update.$unset = { phone: "" };
+
+    if (body && Object.hasOwn(body, "preferences")) {
+      const value = body.preferences;
+      if (!value || typeof value !== "object" || Array.isArray(value))
+        return res.status(400).json({
+          success: false,
+          error: { message: "Enter valid account preferences." },
+        });
+      const preferences = value as Record<string, unknown>;
+      for (const field of ["orderUpdates", "studioLetters"] as const) {
+        if (
+          preferences[field] !== undefined &&
+          typeof preferences[field] !== "boolean"
+        )
+          return res.status(400).json({
+            success: false,
+            error: { message: "Account preferences must be enabled or disabled." },
+          });
+        if (typeof preferences[field] === "boolean")
+          update.$set[`preferences.${field}`] = preferences[field];
+      }
+    }
+
+    if (body && Object.hasOwn(body, "savedAddress")) {
+      const value = body.savedAddress;
+      if (!value || typeof value !== "object" || Array.isArray(value))
+        return res.status(400).json({
+          success: false,
+          error: { message: "Enter a valid delivery address." },
+        });
+
+      const address = value as Record<string, unknown>;
+      const addressFields = [
+        ["name", 80],
+        ["phone", 32],
+        ["governorate", 80],
+        ["line1", 160],
+        ["line2", 160],
+        ["city", 80],
+        ["postalCode", 20],
+      ] as const;
+      const normalizedAddress: ISavedAddress = {};
+      for (const [field, maxLength] of addressFields) {
+        const entry = address[field];
+        if (entry === undefined) continue;
+        if (typeof entry !== "string" || entry.trim().length > maxLength)
+          return res.status(400).json({
+            success: false,
+            error: { message: "Check your delivery address details." },
+          });
+        const normalized = entry.trim();
+        if (normalized) normalizedAddress[field] = normalized;
+      }
+
+      if (
+        !normalizedAddress.name ||
+        !normalizedAddress.phone ||
+        !/^\+?[0-9().\s-]{7,32}$/.test(normalizedAddress.phone) ||
+        !normalizedAddress.governorate ||
+        !normalizedAddress.line1
+      )
+        return res.status(400).json({
+          success: false,
+          error: {
+            message:
+              "Recipient, phone, governorate, and street address are required.",
+          },
+        });
+      if (
+        address.country !== undefined &&
+        address.country !== "EG" &&
+        address.country !== "Egypt"
+      )
+        return res.status(400).json({
+          success: false,
+          error: { message: "Saved delivery addresses must be in Egypt." },
+        });
+      normalizedAddress.country = "EG";
+      update.$set.savedAddress = normalizedAddress;
+    }
+
+    if (body && Object.hasOwn(body, "avatarUrl")) {
+      if (body.avatarUrl === null || body.avatarUrl === "") {
+        update.$unset = {
+          ...update.$unset,
+          avatarUrl: "",
+          avatarPublicId: "",
+        };
+      } else {
+        const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+        const avatarUrl =
+          typeof body.avatarUrl === "string" ? body.avatarUrl.trim() : "";
+        const avatarPublicId =
+          typeof body.avatarPublicId === "string"
+            ? body.avatarPublicId.trim()
+            : "";
+        if (
+          !cloudName ||
+          !avatarUrl.startsWith(
+            `https://res.cloudinary.com/${cloudName}/image/upload/`,
+          ) ||
+          !avatarPublicId.startsWith("lumina/avatars/") ||
+          avatarPublicId.includes("..")
+        )
+          return res.status(400).json({
+            success: false,
+            error: { message: "Choose a valid profile image." },
+          });
+        update.$set.avatarUrl = avatarUrl;
+        update.$set.avatarPublicId = avatarPublicId;
+      }
+    }
+
+    const user = await User.findByIdAndUpdate(req.user!._id, update, {
+      new: true,
+      runValidators: true,
+    });
+    if (!user)
+      return res.status(404).json({
+        success: false,
+        error: { message: "Your account could not be found." },
+      });
+    res.json({ success: true, data: { user: publicUser(user) } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post(
+  "/avatar/signature",
+  requireAuth,
+  requireCsrf,
+  async (req, res, next) => {
+    try {
+      const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+      const apiKey = process.env.CLOUDINARY_API_KEY;
+      const apiSecret = process.env.CLOUDINARY_API_SECRET;
+      if (!cloudName || !apiKey || !apiSecret)
+        return res.status(503).json({
+          success: false,
+          error: { message: "Cloudinary is not configured." },
+        });
+
+      const timestamp = Math.floor(Date.now() / 1000);
+      const folder = "lumina/avatars";
+      const signature = createHash("sha1")
+        .update(`folder=${folder}&timestamp=${timestamp}${apiSecret}`)
+        .digest("hex");
+      res.json({
+        success: true,
+        data: { cloudName, apiKey, timestamp, folder, signature },
+      });
+    } catch (error) {
+      next(error);
+    }
+  },
+);
 
 router.post("/logout", requireAuth, async (req, res, next) => {
   try {

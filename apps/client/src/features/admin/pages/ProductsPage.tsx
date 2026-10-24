@@ -252,7 +252,9 @@ export function ProductsPage() {
   const { toast } = useToast();
   const [products, setProducts] = useState<AdminProduct[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(
+    () => new URLSearchParams(window.location.search).get("search") ?? "",
+  );
   const [filter, setFilter] = useState<ProductFilter>("all");
   const [sort, setSort] = useState<ProductSort>("newest");
   const [view, setView] = useState<ProductView>("list");

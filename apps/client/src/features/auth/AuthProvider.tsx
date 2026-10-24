@@ -60,9 +60,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [csrfToken]);
 
+  const updateUser = useCallback((updatedUser: AuthUser) => {
+    setUser(updatedUser);
+  }, []);
+
   const value = useMemo(
-    () => ({ user, loading, csrfToken, openAuth: () => setOpen(true), logout }),
-    [csrfToken, loading, logout, user],
+    () => ({
+      user,
+      loading,
+      csrfToken,
+      updateUser,
+      openAuth: () => setOpen(true),
+      logout,
+    }),
+    [csrfToken, loading, logout, updateUser, user],
   );
 
   return (

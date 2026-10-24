@@ -443,7 +443,9 @@ export function OrdersPage({ products }: { products: Product[] }) {
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(
+    () => new URLSearchParams(window.location.search).get("search") ?? "",
+  );
   const [filter, setFilter] = useState<StatusFilter>("All orders");
   const [page, setPage] = useState(1);
   const [sortNewestFirst, setSortNewestFirst] = useState(true);

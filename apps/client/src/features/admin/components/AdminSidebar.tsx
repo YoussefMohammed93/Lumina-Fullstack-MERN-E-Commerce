@@ -8,6 +8,7 @@ import {
   adminSettingsNavigation,
   adminWorkspaceNavigation,
 } from "@/features/admin/admin-navigation";
+import { useAdminNotifications } from "@/features/admin/notifications/admin-notifications-context";
 
 interface AdminSidebarProps {
   collapsed: boolean;
@@ -26,11 +27,13 @@ function NavigationGroup({
   items,
   pathname,
   collapsed,
+  unreadCount,
   onNavigate,
 }: {
   items: readonly NavigationItem[];
   pathname: string;
   collapsed: boolean;
+  unreadCount: number;
   onNavigate?: () => void;
 }) {
   return (
@@ -38,14 +41,22 @@ function NavigationGroup({
       {items.map((item) => {
         const active = pathname === item.href;
         const Icon = item.icon;
+        const hasUnread =
+          item.label === "Notifications" && unreadCount > 0;
         return (
           <a
             key={item.href}
             href={item.href}
             onClick={onNavigate}
-            title={collapsed ? item.label : undefined}
+            title={
+              collapsed
+                ? hasUnread
+                  ? `${item.label} (${unreadCount} unread)`
+                  : item.label
+                : undefined
+            }
             className={cn(
-              "flex h-10 items-center gap-3 rounded-xl px-3 text-sm transition-colors",
+              "relative flex h-10 items-center gap-3 rounded-xl px-3 text-sm transition-colors",
               active
                 ? "bg-sidebar-accent text-foreground"
                 : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
@@ -53,7 +64,21 @@ function NavigationGroup({
             )}
           >
             <Icon className="size-4 shrink-0" strokeWidth={1.6} />
-            {!collapsed && <span>{item.label}</span>}
+            {!collapsed && <span className="min-w-0 flex-1">{item.label}</span>}
+            {hasUnread && (
+              <span
+                className={cn(
+                  "grid min-h-4 min-w-4 place-items-center rounded-full bg-clay px-1 text-[9px] font-semibold text-white",
+                  collapsed && "absolute top-1 right-1",
+                )}
+              >
+                {collapsed
+                  ? ""
+                  : unreadCount > 99
+                    ? "99+"
+                    : unreadCount}
+              </span>
+            )}
           </a>
         );
       })}
@@ -71,6 +96,7 @@ function SidebarLinks({
   onLogout: () => void;
 }) {
   const pathname = window.location.pathname;
+  const { unreadCount } = useAdminNotifications();
   return (
     <>
       <div className="mt-4 space-y-5">
@@ -78,6 +104,7 @@ function SidebarLinks({
           items={adminNavigation}
           pathname={pathname}
           collapsed={collapsed}
+          unreadCount={unreadCount}
           onNavigate={onNavigate}
         />
         <Separator className="bg-sidebar-border" />
@@ -85,6 +112,7 @@ function SidebarLinks({
           items={adminWorkspaceNavigation}
           pathname={pathname}
           collapsed={collapsed}
+          unreadCount={unreadCount}
           onNavigate={onNavigate}
         />
       </div>
@@ -95,6 +123,7 @@ function SidebarLinks({
           items={adminSettingsNavigation}
           pathname={pathname}
           collapsed={collapsed}
+          unreadCount={unreadCount}
           onNavigate={onNavigate}
         />
         <button

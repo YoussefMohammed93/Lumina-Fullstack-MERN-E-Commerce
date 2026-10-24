@@ -11,34 +11,45 @@ import { ProductRecycleBinPage } from "@/features/admin/pages/ProductRecycleBinP
 import { CustomersPage } from "@/features/admin/pages/CustomersPage";
 import { CategoriesPage } from "@/features/admin/pages/CategoriesPage";
 import { OrdersPage } from "@/features/admin/pages/OrdersPage";
+import { NotificationsPage } from "@/features/admin/pages/NotificationsPage";
+import { AdminNotificationsProvider } from "@/features/admin/notifications/admin-notifications-context";
 import type { Product } from "@/types/product";
+import type { AdminDashboardOverview } from "@/features/admin/admin-dashboard-service";
 
 export function AdminDashboard({ products }: { products: Product[] }) {
   const { user, loading, openAuth, logout } = useAuth();
-  const [paidRevenue, setPaidRevenue] = useState<number | null>(null);
-  const [revenueError, setRevenueError] = useState<string | null>(null);
+  const [overview, setOverview] = useState<AdminDashboardOverview | null>(null);
+  const [overviewLoading, setOverviewLoading] = useState(true);
+  const [overviewError, setOverviewError] = useState<string | null>(null);
+  const [overviewRetry, setOverviewRetry] = useState(0);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   useEffect(() => {
     if (user?.role !== "admin") return;
     let cancelled = false;
-    void apiRequest<{ paidRevenue: number }>("/admin/dashboard/overview")
-      .then(({ paidRevenue: amount }) => {
-        if (!cancelled) setPaidRevenue(amount);
+    void apiRequest<AdminDashboardOverview>("/admin/dashboard/overview")
+      .then((data) => {
+        if (!cancelled) {
+          setOverview(data);
+          setOverviewError(null);
+        }
       })
       .catch((error: unknown) => {
         if (!cancelled)
-          setRevenueError(
+          setOverviewError(
             error instanceof Error
               ? error.message
-              : "Unable to load paid revenue.",
+              : "Unable to load dashboard overview.",
           );
+      })
+      .finally(() => {
+        if (!cancelled) setOverviewLoading(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [user?.role]);
+  }, [overviewRetry, user?.role]);
 
   if (loading) return null;
   if (!user)
@@ -67,49 +78,58 @@ export function AdminDashboard({ products }: { products: Product[] }) {
 
   const page = window.location.pathname.split("/")[2];
   return (
-    <div className="min-h-screen bg-background">
-      <AdminSidebar
-        collapsed={collapsed}
-        mobileOpen={mobileSidebarOpen}
-        onCollapsedChange={() => setCollapsed((value) => !value)}
-        onMobileClose={() => setMobileSidebarOpen(false)}
-        onLogout={() => void logout()}
-      />
-      <div
-        className={`min-w-0 transition-[padding] duration-300 ${
-          collapsed ? "lg:pl-[76px]" : "lg:pl-64"
-        }`}
-      >
-        <AdminTopbar
-          user={user}
+    <AdminNotificationsProvider>
+      <div className="min-h-screen bg-background">
+        <AdminSidebar
           collapsed={collapsed}
-          onMenuClick={() => setMobileSidebarOpen(true)}
+          mobileOpen={mobileSidebarOpen}
+          onCollapsedChange={() => setCollapsed((value) => !value)}
+          onMobileClose={() => setMobileSidebarOpen(false)}
           onLogout={() => void logout()}
         />
-        <main className="mx-auto px-4 pt-25 pb-7 md:px-7 md:pt-27 md:pb-9">
-          {page === "products" ? (
-            <ProductsPage />
-          ) : page === "orders" ? (
-            <OrdersPage products={products} />
-          ) : page === "categories" ? (
-            <CategoriesPage />
-          ) : page === "customers" ? (
-            <CustomersPage />
-          ) : page === "drafts" ? (
-            <ProductTrashPage />
-          ) : page === "trash" ? (
-            <ProductRecycleBinPage />
-          ) : page ? (
-            <ResourcePage page={page} />
-          ) : (
-            <DashboardPage
-              userName={user.name || user.username}
-              paidRevenue={paidRevenue}
-              revenueError={revenueError}
-            />
-          )}
-        </main>
+        <div
+          className={`min-w-0 transition-[padding] duration-300 ${
+            collapsed ? "lg:pl-[76px]" : "lg:pl-64"
+          }`}
+        >
+          <AdminTopbar
+            user={user}
+            collapsed={collapsed}
+            onMenuClick={() => setMobileSidebarOpen(true)}
+            onLogout={() => void logout()}
+          />
+          <main className="mx-auto px-4 pt-25 pb-7 md:px-7 md:pt-27 md:pb-9">
+            {page === "products" ? (
+              <ProductsPage />
+            ) : page === "orders" ? (
+              <OrdersPage products={products} />
+            ) : page === "notifications" ? (
+              <NotificationsPage />
+            ) : page === "categories" ? (
+              <CategoriesPage />
+            ) : page === "customers" ? (
+              <CustomersPage />
+            ) : page === "drafts" ? (
+              <ProductTrashPage />
+            ) : page === "trash" ? (
+              <ProductRecycleBinPage />
+            ) : page ? (
+              <ResourcePage page={page} />
+            ) : (
+              <DashboardPage
+                userName={user.name || user.username}
+                overview={overview}
+                loading={overviewLoading}
+                error={overviewError}
+                onRetry={() => {
+                  setOverviewLoading(true);
+                  setOverviewRetry((value) => value + 1);
+                }}
+              />
+            )}
+          </main>
+        </div>
       </div>
-    </div>
+    </AdminNotificationsProvider>
   );
 }

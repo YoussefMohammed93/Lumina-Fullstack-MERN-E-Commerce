@@ -1,15 +1,15 @@
-import { useState } from "react";
+import type { MouseEvent } from "react";
 import {
+  AlertTriangle,
   Bell,
-  Check,
   CheckCheck,
-  CircleAlert,
   LogOut,
   Menu,
   PackageCheck,
   Search,
   Settings,
   ShoppingBag,
+  UserRoundPlus,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -24,30 +24,8 @@ import {
 import { Input } from "@/components/ui/input";
 import type { AuthUser } from "@/features/auth/auth-context";
 import { cn } from "@/lib/utils";
-
-const notifications = [
-  {
-    title: "New order #LM-2049",
-    description: "EGP 2,140 from Salma R.",
-    icon: ShoppingBag,
-    tone: { backgroundColor: "#dbeafe", color: "#1d4ed8" },
-    time: "2m",
-  },
-  {
-    title: "Inventory needs attention",
-    description: "3 products are low in stock.",
-    icon: CircleAlert,
-    tone: { backgroundColor: "#fee2e2", color: "#b91c1c" },
-    time: "18m",
-  },
-  {
-    title: "Order fulfilled",
-    description: "#LM-2044 is ready for delivery.",
-    icon: PackageCheck,
-    tone: { backgroundColor: "#dcfce7", color: "#15803d" },
-    time: "1h",
-  },
-];
+import { useAdminNotifications } from "@/features/admin/notifications/admin-notifications-context";
+import { notificationTimeLabel } from "@/features/admin/notifications/notification-utils";
 
 export function AdminTopbar({
   user,
@@ -62,7 +40,43 @@ export function AdminTopbar({
 }) {
   const initials = (user.name || user.username).slice(0, 2).toUpperCase();
   const displayName = user.name || user.username;
-  const [unreadCount, setUnreadCount] = useState(notifications.length);
+  const {
+    notifications,
+    unreadCount,
+    error: notificationError,
+    markRead,
+    markAllRead,
+  } = useAdminNotifications();
+  const notificationIcon = {
+    new_order: {
+      icon: ShoppingBag,
+      className: "bg-blue-100 text-blue-700",
+    },
+    order_status: {
+      icon: PackageCheck,
+      className: "bg-emerald-100 text-emerald-700",
+    },
+    low_stock: {
+      icon: AlertTriangle,
+      className: "bg-rose-100 text-rose-700",
+    },
+    new_customer: {
+      icon: UserRoundPlus,
+      className: "bg-violet-100 text-violet-700",
+    },
+  } as const;
+  async function openNotification(
+    event: MouseEvent<HTMLAnchorElement>,
+    notification: (typeof notifications)[number],
+  ) {
+    event.preventDefault();
+    try {
+      if (!notification.isRead) await markRead(notification.id, true);
+      window.location.assign(notification.href);
+    } catch {
+      return;
+    }
+  }
   return (
     <header
       className={cn(
@@ -93,11 +107,13 @@ export function AdminTopbar({
               variant="ghost"
               size="default"
               className="relative h-9 w-9 rounded-full p-0"
-              aria-label="Notifications"
+              aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ""}`}
             >
               <Bell className="size-6" strokeWidth={1.6} />
               {unreadCount > 0 && (
-                <span className="absolute top-[3px] right-2 size-2 rounded-full bg-clay" />
+                <span className="absolute -top-0 -right-0 grid min-h-4 min-w-4 place-items-center rounded-full bg-clay px-1 text-[9px] font-semibold text-white">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
               )}
             </Button>
           </DropdownMenuTrigger>
@@ -111,7 +127,7 @@ export function AdminTopbar({
                 <p className="font-serif text-lg">Notifications</p>
                 <p className="text-xs text-muted-foreground">
                   {unreadCount
-                    ? `${unreadCount} updates need your attention`
+                    ? `${unreadCount} unread update${unreadCount === 1 ? "" : "s"}`
                     : "You're all caught up"}
                 </p>
               </div>
@@ -119,46 +135,75 @@ export function AdminTopbar({
                 variant="ghost"
                 size="sm"
                 className="h-7 rounded-lg text-xs font-semibold text-clay"
-                onClick={() => setUnreadCount(0)}
+                onClick={() => void markAllRead().catch(() => undefined)}
                 disabled={!unreadCount}
               >
                 <CheckCheck className="size-3.5" />
                 Mark all read
               </Button>
             </div>
-            {notifications.map(
-              ({ title, description, icon: Icon, tone, time }) => (
-                <DropdownMenuItem
-                  key={title}
-                  className="flex items-start gap-3 rounded-none px-4 py-3 focus:bg-muted"
-                >
-                  <span
-                    className="grid size-9 shrink-0 place-items-center rounded-full"
-                    style={tone}
+            {notificationError && (
+              <p role="alert" className="px-4 pb-2 text-xs text-destructive">
+                {notificationError}
+              </p>
+            )}
+            {notifications.length ? (
+              notifications.map((notification) => {
+                const { icon: Icon, className } =
+                  notificationIcon[notification.type];
+                return (
+                  <DropdownMenuItem
+                    key={notification.id}
+                    asChild
+                    className="rounded-none p-0 focus:bg-muted"
                   >
-                    <Icon className="size-4" strokeWidth={1.8} />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-semibold">{title}</span>
-                      <span className="text-[11px] text-muted-foreground">
-                        {time}
+                    <a
+                      href={notification.href}
+                      onClick={(event) =>
+                        void openNotification(event, notification)
+                      }
+                      className="flex w-full items-start gap-3 px-4 py-3"
+                    >
+                      <span
+                        className={`grid size-9 shrink-0 place-items-center rounded-full ${className}`}
+                      >
+                        <Icon className="size-4" strokeWidth={1.8} />
                       </span>
-                    </span>
-                    <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-                      {description}
-                    </span>
-                  </span>
-                </DropdownMenuItem>
-              ),
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-center justify-between gap-2">
+                          <span
+                            className={cn(
+                              "text-sm",
+                              !notification.isRead && "font-semibold",
+                            )}
+                          >
+                            {notification.title}
+                          </span>
+                          <span className="shrink-0 text-[11px] text-muted-foreground">
+                            {notificationTimeLabel(notification.createdAt)}
+                          </span>
+                        </span>
+                        <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                          {notification.message}
+                        </span>
+                      </span>
+                      {!notification.isRead && (
+                        <span className="mt-2 size-2 shrink-0 rounded-full bg-clay" />
+                      )}
+                    </a>
+                  </DropdownMenuItem>
+                );
+              })
+            ) : (
+              <p className="px-4 py-5 text-center text-sm text-muted-foreground">
+                No notifications yet.
+              </p>
             )}
             <DropdownMenuItem
               asChild
               className="justify-center rounded-none py-3 font-semibold text-clay focus:bg-muted"
             >
-              <a href="/admin/notifications">
-                View all notifications <Check className="size-3.5" />
-              </a>
+              <a href="/admin/notifications">View all notifications</a>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

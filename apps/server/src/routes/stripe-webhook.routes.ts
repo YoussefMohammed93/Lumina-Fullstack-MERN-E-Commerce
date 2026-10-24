@@ -2,9 +2,17 @@ import { Router } from "express";
 import type Stripe from "stripe";
 import { Order } from "../models/order.model.js";
 import { Cart } from "../models/commerce.model.js";
+import { User } from "../models/user.model.js";
 import { getStripe } from "../lib/stripe.js";
 import { inventoryForOrderItems, restoreInventory } from "../lib/inventory.js";
-import { stripeShippingAddress } from "../lib/orders.js";
+import {
+  orderNumberForId,
+  stripeShippingAddress,
+} from "../lib/orders.js";
+import {
+  notifyOrderPayment,
+  notifyOrderStatus,
+} from "../lib/notifications.js";
 
 const router = Router();
 
@@ -56,34 +64,47 @@ router.post("/", async (req, res) => {
               : undefined,
           ...(shippingAddress ? { shippingAddress } : {}),
         };
-        const order = metadata.orderId
-          ? await Order.findOneAndUpdate(
-              {
-                $or: [
-                  { stripeCheckoutSessionId: session.id },
-                  { _id: metadata.orderId },
-                ],
+        const pendingOrder =
+          (await Order.findOne({
+            stripeCheckoutSessionId: session.id,
+            paymentStatus: { $ne: "paid" },
+          })) ??
+          (metadata.orderId
+            ? await Order.findOne({
+                _id: metadata.orderId,
                 paymentStatus: { $ne: "paid" },
-              },
+              })
+            : null);
+        if (pendingOrder && shippingAddress?.line1) {
+          await User.updateOne(
+            { _id: pendingOrder.userId },
+            { $set: { savedAddress: shippingAddress } },
+          );
+        }
+        const order = pendingOrder
+          ? await Order.findOneAndUpdate(
+              { _id: pendingOrder._id, paymentStatus: { $ne: "paid" } },
               update,
               { new: true },
             )
-          : await Order.findOneAndUpdate(
-              { stripeCheckoutSessionId: session.id, paymentStatus: { $ne: "paid" } },
-              update,
-              { new: true },
-            );
+          : null;
         if (!order) {
           console.warn(
             `Stripe webhook could not find a pending order for session ${session.id}.`,
           );
         } else {
+          const changedAt = new Date();
+          await notifyOrderPayment({
+            orderId: String(order._id),
+            orderNumber:
+              order.orderNumber ?? orderNumberForId(String(order._id)),
+            paymentStatus: "paid",
+          });
           if (
             order.fulfillmentStatus === "placed" ||
             order.fulfillmentStatus === "pending"
           ) {
-            const changedAt = new Date();
-            await Order.updateOne(
+            const statusUpdate = await Order.updateOne(
               {
                 _id: order._id,
                 fulfillmentStatus: { $in: ["placed", "pending"] },
@@ -95,6 +116,15 @@ router.post("/", async (req, res) => {
                 },
               },
             );
+            if (statusUpdate.modifiedCount === 1)
+              await notifyOrderStatus({
+                orderId: String(order._id),
+                orderNumber:
+                  order.orderNumber ??
+                  orderNumberForId(String(order._id)),
+                status: "confirmed",
+                changedAt,
+              });
           }
           await Cart.updateOne(
             { userId: order.userId },
@@ -123,6 +153,11 @@ router.post("/", async (req, res) => {
         { new: true },
       ).lean();
       if (order) {
+        await notifyOrderPayment({
+          orderId: String(order._id),
+          orderNumber: order.orderNumber ?? orderNumberForId(String(order._id)),
+          paymentStatus: "failed",
+        });
         try {
           await restoreInventory(inventoryForOrderItems(order.items));
         } catch (error) {

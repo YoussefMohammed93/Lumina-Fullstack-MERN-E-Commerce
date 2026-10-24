@@ -61,7 +61,7 @@ export function stripeShippingAddress(
   };
 }
 
-export async function paidRevenueTotal(): Promise<number> {
+async function paidOrderTotals() {
   const paidOrders = await Order.find({
     $or: [
       { paymentStatus: "paid" },
@@ -71,10 +71,10 @@ export async function paidRevenueTotal(): Promise<number> {
       },
     ],
   })
-    .select("amountTotal items")
+    .select("amountTotal items createdAt")
     .lean();
 
-  if (!paidOrders.length) return 0;
+  if (!paidOrders.length) return [];
 
   const productIds = [
     ...new Set(paidOrders.flatMap((order) => order.items.map((item) => item.productId))),
@@ -92,7 +92,7 @@ export async function paidRevenueTotal(): Promise<number> {
     }
   }
 
-  return paidOrders.reduce((revenue, order) => {
+  return paidOrders.map((order) => {
     const itemTotal = order.items.reduce(
       (total, item) => total + item.unitAmount * item.quantity,
       0,
@@ -106,13 +106,50 @@ export async function paidRevenueTotal(): Promise<number> {
         return price !== undefined && item.unitAmount === price * 100;
       });
 
-    return (
-      revenue +
-      (previouslyOverScaled && order.amountTotal === itemTotal
+    return {
+      createdAt: order.createdAt,
+      amountTotal:
+        previouslyOverScaled && order.amountTotal === itemTotal
         ? order.amountTotal / 100
-        : order.amountTotal)
+        : order.amountTotal,
+    };
+  });
+}
+
+export async function paidRevenueTotal(): Promise<number> {
+  const orders = await paidOrderTotals();
+  return orders.reduce((revenue, order) => revenue + order.amountTotal, 0);
+}
+
+export async function paidRevenueByMonth(monthCount = 6) {
+  const orders = await paidOrderTotals();
+  const now = new Date();
+  const months = Array.from({ length: monthCount }, (_, index) => {
+    const month = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - monthCount + index + 1, 1),
     );
-  }, 0);
+    return {
+      year: month.getUTCFullYear(),
+      month: month.getUTCMonth(),
+      label: new Intl.DateTimeFormat("en", {
+        month: "short",
+        timeZone: "UTC",
+      }).format(month),
+      amount: 0,
+    };
+  });
+  const monthIndexes = new Map(
+    months.map((month, index) => [`${month.year}-${month.month}`, index]),
+  );
+  for (const order of orders) {
+    if (!order.createdAt) continue;
+    const createdAt = new Date(order.createdAt);
+    const index = monthIndexes.get(
+      `${createdAt.getUTCFullYear()}-${createdAt.getUTCMonth()}`,
+    );
+    if (index !== undefined) months[index].amount += order.amountTotal;
+  }
+  return months.map(({ label, amount }) => ({ label, amount }));
 }
 
 export function orderCreatedAt(order: Pick<IOrder, "createdAt">) {

@@ -8,6 +8,7 @@ import {
   CircleHelp,
   CircleX,
   Clock3,
+  ChevronDown,
   CreditCard,
   Download,
   MapPin,
@@ -28,6 +29,7 @@ import type { Category, Product } from "@/types/product";
 import { StorefrontLayout } from "@/components/StorefrontLayout";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SafeImage } from "@/components/motion/SafeImage";
+import { Button } from "@/components/ui/button";
 
 const stageIcons: Record<Exclude<OrderStage, "cancelled">, LucideIcon> = {
   placed: PackageCheck,
@@ -820,6 +822,7 @@ export function OrderHistorySection() {
   const [orders, setOrders] = useState<TrackingOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showAllOrders, setShowAllOrders] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -873,8 +876,9 @@ export function OrderHistorySection() {
           {error}
         </p>
       ) : orders.length ? (
-        <ul className="mt-5 space-y-3">
-          {orders.map((order) => {
+        <>
+          <ul className="mt-5 space-y-3">
+          {(showAllOrders ? orders : orders.slice(0, 3)).map((order) => {
             const status = ORDER_STAGES.find(
               (stage) => stage.key === order.currentStage,
             );
@@ -944,7 +948,24 @@ export function OrderHistorySection() {
               </li>
             );
           })}
-        </ul>
+          </ul>
+          {orders.length > 3 && (
+            <Button
+              type="button"
+              size="sm"
+              aria-expanded={showAllOrders}
+              onClick={() => setShowAllOrders((current) => !current)}
+              className="mt-5 inline-flex h-10 items-center gap-2 rounded-full border border-border px-4"
+            >
+              {showAllOrders ? "Show recent orders" : "Show all orders"}
+              <ChevronDown
+                className={`size-4 transition-transform ${
+                  showAllOrders ? "rotate-180" : ""
+                }`}
+              />
+            </Button>
+          )}
+        </>
       ) : (
         <div className="mt-5 rounded-md border border-dashed border-border bg-card/50 px-6 py-10 text-center">
           <Package className="mx-auto size-6 text-clay" strokeWidth={1.4} />
