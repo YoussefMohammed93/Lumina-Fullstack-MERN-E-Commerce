@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/features/auth/useAuth";
 import { SearchOverlay } from "@/features/landing/SearchOverlay";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { fetchPublicStoreSettings } from "@/features/storefront/store-settings";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -101,15 +102,18 @@ export function Nav({
   onSearch,
   onWishlist,
   products,
+  onAnnouncementReady,
 }: {
   onSearch: () => void;
   onCart: () => void;
   onWishlist: () => void;
   products: Product[];
+  onAnnouncementReady?: () => void;
 }) {
   const scrolled = useScrolled(16);
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [announcement, setAnnouncement] = useState<string | null>(null);
   const { totalQuantity, wishlist } = useCart();
   const { user, openAuth, logout } = useAuth();
   const mobileMenuRef = useRef<HTMLDivElement>(null);
@@ -119,6 +123,26 @@ export function Nav({
     : LINKS;
 
   useScrollLock(menuOpen);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchPublicStoreSettings()
+      .then((settings) => {
+        if (cancelled) return;
+        setAnnouncement(
+          settings.announcementEnabled ? settings.announcementText : null,
+        );
+      })
+      .catch((error: unknown) => {
+        console.error("Unable to load storefront announcement.", error);
+      })
+      .finally(() => {
+        if (!cancelled) onAnnouncementReady?.();
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [onAnnouncementReady]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -164,15 +188,53 @@ export function Nav({
 
   return (
     <>
-      <div className="sticky top-0 z-40 px-4 pt-3 sm:px-6 lg:px-8">
-        <header
-          className={cn(
-            "relative mx-auto flex h-16 max-w-6xl items-center gap-3 rounded-full border px-2 pr-2 pl-5 transition-all duration-700 ease-luxe sm:gap-8 sm:pl-7",
-            scrolled
-              ? "border-border/80 bg-background/80 shadow-[0_18px_40px_-30px_rgba(26,24,21,0.45)] backdrop-blur-sm"
-              : "border-transparent bg-background/40",
-          )}
-        >
+      <div className="sticky top-0 z-40">
+        {announcement && (
+          <div
+            role="region"
+            aria-label="Store announcement"
+            className="announcement-marquee overflow-hidden border-b border-foreground/10 bg-foreground py-2.5 text-background"
+          >
+            <div
+              className="announcement-marquee-track flex w-max items-center"
+              style={{
+                animationDuration: `${Math.max(24, Math.min(120, announcement.length * 0.4))}s`,
+              }}
+            >
+              {[0, 1].map((group) => (
+                <div
+                  key={group}
+                  aria-hidden={group === 1}
+                  className="announcement-marquee-copy flex shrink-0 items-center justify-around gap-8 px-4"
+                  style={{ minWidth: "100vw" }}
+                >
+                  {[0, 1].map((item) => (
+                    <span
+                      key={item}
+                      aria-hidden={item === 1}
+                      className="flex shrink-0 items-center gap-8 whitespace-nowrap text-[11px] tracking-[0.12em] sm:text-xs"
+                    >
+                      <span>{announcement}</span>
+                      <span
+                        aria-hidden="true"
+                        className="size-1 rounded-full bg-clay"
+                      />
+                    </span>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        <div className="px-4 pt-3 sm:px-6 lg:px-8">
+          <header
+            className={cn(
+              "relative mx-auto flex h-16 max-w-6xl items-center gap-3 rounded-full border px-2 pr-2 pl-5 transition-all duration-700 ease-luxe sm:gap-8 sm:pl-7",
+              scrolled
+                ? "border-border/80 bg-background/80 shadow-[0_18px_40px_-30px_rgba(26,24,21,0.45)] backdrop-blur-sm"
+                : "border-transparent bg-background/40",
+            )}
+          >
           <Wordmark />
 
           <nav
@@ -323,7 +385,8 @@ export function Nav({
               )}
             </button>
           </div>
-        </header>
+          </header>
+        </div>
       </div>
 
       {/* Mobile menu — full-screen ivory overlay with staggered links. */}

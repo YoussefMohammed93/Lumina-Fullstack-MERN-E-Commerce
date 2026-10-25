@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { Category, Product, Testimonial } from "@/types/product";
 import { Nav } from "./Nav";
 import { Hero } from "./Hero";
@@ -12,6 +12,7 @@ import { Newsletter } from "./Newsletter";
 import { Footer } from "./Footer";
 import { CartDrawer } from "./CartDrawer";
 import { WishlistDrawer } from "./WishlistDrawer";
+import { BrandLoadingScreen } from "@/components/BrandLogo";
 
 export function LandingPage({
   products,
@@ -24,6 +25,26 @@ export function LandingPage({
 }) {
   const [cartOpen, setCartOpen] = useState(false);
   const [wishlistOpen, setWishlistOpen] = useState(false);
+  const [heroImagesSettled, setHeroImagesSettled] = useState(0);
+  const [fontsReady, setFontsReady] = useState(false);
+  const [announcementReady, setAnnouncementReady] = useState(false);
+  const [footerSettingsReady, setFooterSettingsReady] = useState(false);
+  const onHeroImageSettled = useCallback(() => {
+    setHeroImagesSettled((count) => Math.min(count + 1, 2));
+  }, []);
+
+  const onAnnouncementReady = useCallback(
+    () => setAnnouncementReady(true),
+    [],
+  );
+  const onFooterSettingsReady = useCallback(
+    () => setFooterSettingsReady(true),
+    [],
+  );
+
+  useEffect(() => {
+    void document.fonts.ready.then(() => setFontsReady(true));
+  }, []);
 
   const featured = products[0];
   const bestSellers = [...products]
@@ -77,10 +98,11 @@ export function LandingPage({
         onCart={() => setCartOpen(true)}
         onWishlist={() => setWishlistOpen(true)}
         products={products}
+        onAnnouncementReady={onAnnouncementReady}
       />
 
       <main>
-        <Hero featured={featured} />
+        <Hero featured={featured} onImagesSettled={onHeroImageSettled} />
         <Marquee />
         <CategoryBento categories={categories} />
         <FeaturedEdit products={products} categories={categories} />
@@ -90,7 +112,10 @@ export function LandingPage({
         <Newsletter />
       </main>
 
-      <Footer categories={categories} />
+      <Footer
+        categories={categories}
+        onSettingsReady={onFooterSettingsReady}
+      />
 
       <CartDrawer
         open={cartOpen}
@@ -102,6 +127,12 @@ export function LandingPage({
         onClose={() => setWishlistOpen(false)}
         products={products}
       />
+      {(!fontsReady ||
+        heroImagesSettled < 2 ||
+        !announcementReady ||
+        !footerSettingsReady) && (
+        <BrandLoadingScreen label="Preparing the collection" overlay />
+      )}
     </div>
   );
 }

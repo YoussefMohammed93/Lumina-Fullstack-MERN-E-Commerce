@@ -283,7 +283,7 @@ function OrderDetails({ order }: { order: TrackingOrder }) {
             <span>Delivery</span>
             <span className="tabular">
               {order.shippingAmount
-                ? formatPrice(order.shippingAmount)
+                ? formatPrice(order.shippingAmount * 100)
                 : "Complimentary"}
             </span>
           </div>
@@ -503,7 +503,7 @@ function OrderInvoice({ order }: { order: TrackingOrder }) {
             <span>Delivery</span>
             <span>
               {order.shippingAmount
-                ? formatPrice(order.shippingAmount)
+                ? formatPrice(order.shippingAmount * 100)
                 : "Complimentary"}
             </span>
           </div>

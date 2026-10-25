@@ -10,6 +10,14 @@ import ordersRouter from "./routes/orders.routes.js";
 import notificationsRouter from "./routes/notifications.routes.js";
 import newsletterRouter from "./routes/newsletter.routes.js";
 import { adminJournalRouter, journalRouter } from "./routes/journal.routes.js";
+import {
+  adminSettingsRouter,
+  publicSettingsRouter,
+} from "./routes/settings.routes.js";
+import {
+  adminReviewRouter,
+  publicReviewRouter,
+} from "./routes/review.routes.js";
 
 const app = express();
 
@@ -34,6 +42,10 @@ app.use("/api/v1", productRouter);
 app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/journal", journalRouter);
 app.use("/api/v1/newsletter", newsletterRouter);
+app.use("/api/v1/settings", publicSettingsRouter);
+app.use("/api/v1", publicReviewRouter);
+app.use("/api/v1/admin/settings", adminSettingsRouter);
+app.use("/api/v1/admin/reviews", adminReviewRouter);
 app.use("/api/v1", commerceRouter);
 app.use("/api/v1/admin", adminRouter);
 app.use("/api/v1/admin/notifications", notificationsRouter);

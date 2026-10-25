@@ -43,6 +43,7 @@ export interface IOrder {
   items: IOrderItem[];
   currency: string;
   amountTotal: number;
+  shippingAmount?: number;
   paymentMethod: "stripe" | "cash_on_delivery";
   paymentStatus: "pending" | "paid" | "awaiting_cod" | "failed";
   fulfillmentStatus: OrderFulfillmentStatus;
@@ -75,6 +76,7 @@ const orderSchema = new Schema<IOrder>(
     ],
     currency: { type: String, default: "egp" },
     amountTotal: { type: Number, required: true },
+    shippingAmount: { type: Number, min: 0, default: 0 },
     paymentMethod: {
       type: String,
       enum: ["stripe", "cash_on_delivery"],

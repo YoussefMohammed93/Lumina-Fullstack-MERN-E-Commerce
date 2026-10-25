@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Heart, Minus, Plus, ShoppingBag, Star } from "lucide-react";
 import type { Product } from "@/types/product";
 import { getProductBySlug, formatPrice } from "@/services/api";
@@ -22,24 +22,33 @@ import { WishlistDrawer } from "@/features/landing/WishlistDrawer";
 import { ProductCard } from "@/features/landing/ProductCard";
 import { useCart } from "@/features/cart/useCart";
 import { useToast } from "@/features/toast/ToastProvider";
-import { authenticatedRequest } from "@/features/auth/auth-client";
+import {
+  apiRequest,
+  authenticatedRequest,
+} from "@/features/auth/auth-client";
 import { useAuth } from "@/features/auth/useAuth";
 import { cn } from "@/lib/utils";
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@/components/ui/avatar";
 
-const demoReviews = [
-  {
-    name: "Amara D.",
-    date: "February 2026",
-    rating: 5,
-    text: "Beautifully made and even more considered in person. It has become part of my daily rhythm.",
-  },
-  {
-    name: "Daniel R.",
-    date: "January 2026",
-    rating: 4,
-    text: "Thoughtful materials and a quietly excellent finish. Exactly what I hoped for.",
-  },
-];
+interface ProductReview {
+  id: string;
+  name: string;
+  avatarUrl: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+}
+
+interface ProductReviewsResponse {
+  reviews: ProductReview[];
+  total: number;
+  averageRating: number;
+  pagination: { page: number; pageCount: number };
+}
 
 export function ProductDetailsSkeleton() {
   return (
@@ -113,6 +122,7 @@ export function ProductDetailsPage({
   const product = getProductBySlug(slug, products);
   const [cartOpen, setCartOpen] = useState(false);
   const [wishlistOpen, setWishlistOpen] = useState(false);
+  const [reviewsVersion, setReviewsVersion] = useState(0);
 
   if (!product)
     return (
@@ -177,9 +187,12 @@ export function ProductDetailsPage({
         </section>
         <section className="mt-20 grid gap-12 border-t border-border/70 pt-14 lg:grid-cols-[.85fr_1.15fr]">
           <Specifications product={product} />
-          <Reviews product={product} />
+          <Reviews key={reviewsVersion} product={product} />
         </section>
-        <ReviewForm productId={product.id} />
+        <ReviewForm
+          productId={product.id}
+          onSubmitted={() => setReviewsVersion((version) => version + 1)}
+        />
         <section className="mt-20 border-t border-border/70 pt-14">
           <p className="eyebrow text-clay">Considered together</p>
           <h2 className="mt-3 font-serif text-4xl tracking-tight">
@@ -498,6 +511,59 @@ function Specifications({ product }: { product: Product }) {
 }
 
 function Reviews({ product }: { product: Product }) {
+  const [reviews, setReviews] = useState<ProductReview[]>([]);
+  const [total, setTotal] = useState(0);
+  const [averageRating, setAverageRating] = useState(product.rating);
+  const [page, setPage] = useState(1);
+  const [pageCount, setPageCount] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadingPage = page;
+
+    void apiRequest<ProductReviewsResponse>(
+      `/products/${encodeURIComponent(product.id)}/reviews?page=${loadingPage}&limit=2`,
+    )
+      .then((result) => {
+        if (cancelled) return;
+        setReviews((existing) =>
+          loadingPage === 1
+            ? result.reviews
+            : [
+                ...existing,
+                ...result.reviews.filter(
+                  (review) => !existing.some((item) => item.id === review.id),
+                ),
+              ],
+        );
+        setTotal(result.total);
+        setAverageRating(result.averageRating);
+        setPageCount(result.pagination.pageCount);
+      })
+      .catch((loadError: unknown) => {
+        if (!cancelled)
+          setError(
+            loadError instanceof Error
+              ? loadError.message
+              : "Unable to load customer reviews.",
+          );
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+          setLoadingMore(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [page, product.id]);
+
+  const rating = total ? averageRating : product.rating;
   return (
     <section>
       <p className="eyebrow text-clay">Community</p>
@@ -505,39 +571,89 @@ function Reviews({ product }: { product: Product }) {
         Customer reviews
       </h2>
       <div className="mt-7 flex items-center gap-5 rounded-[1.5rem] bg-muted/60 p-5">
-        <span className="font-serif text-5xl">{product.rating.toFixed(1)}</span>
+        <span className="font-serif text-5xl">{rating.toFixed(1)}</span>
         <div>
           <StarRating
-            rating={product.rating}
+            rating={rating}
             className="scale-110 origin-left"
           />
           <p className="mt-2 text-xs text-muted-foreground">
-            Based on available ratings
+            Based on {total} {total === 1 ? "review" : "reviews"}
           </p>
         </div>
       </div>
       <div className="mt-8 space-y-5">
-        {demoReviews.map((review) => (
-          <article key={review.name} className="border-b border-border/70 pb-5">
+        {loading ? (
+          <p className="py-8 text-sm text-muted-foreground">
+            Loading customer reviews...
+          </p>
+        ) : error ? (
+          <p role="alert" className="py-5 text-sm text-destructive">
+            {error}
+          </p>
+        ) : reviews.length ? (
+          reviews.map((review) => (
+          <article key={review.id} className="border-b border-border/70 pb-5">
             <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-sm font-medium">{review.name}</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Sample review · {review.date}
-                </p>
+              <div className="flex items-center gap-3">
+                <Avatar>
+                  <AvatarImage src={review.avatarUrl} alt="" />
+                  <AvatarFallback>
+                    {review.name.slice(0, 1).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <p className="text-sm font-medium">{review.name}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {formatReviewDate(review.createdAt)}
+                  </p>
+                </div>
               </div>
               <Stars value={review.rating} />
             </div>
             <p className="mt-3 text-sm leading-6 text-muted-foreground">
-              {review.text}
+              {review.comment}
             </p>
           </article>
-        ))}
+          ))
+        ) : (
+          <p className="py-8 text-sm text-muted-foreground">
+            No approved reviews yet. Be the first to share your experience.
+          </p>
+        )}
       </div>
+      {!loading && !error && page < pageCount && (
+        <Button
+          type="button"
+          variant="outline"
+          className="mt-6 rounded-full"
+          disabled={loadingMore}
+          onClick={() => {
+            setError("");
+            setLoadingMore(true);
+            setPage((current) => current + 1);
+          }}
+        >
+          {loadingMore ? "Loading..." : "Load more reviews"}
+        </Button>
+      )}
     </section>
   );
 }
-function ReviewForm({ productId }: { productId: string }) {
+function formatReviewDate(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? "Date unavailable"
+    : new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(date);
+}
+
+function ReviewForm({
+  productId,
+  onSubmitted,
+}: {
+  productId: string;
+  onSubmitted: () => void;
+}) {
   const { toast } = useToast();
   const { user, csrfToken, openAuth } = useAuth();
   const [rating, setRating] = useState(0);
@@ -564,6 +680,7 @@ function ReviewForm({ productId }: { productId: string }) {
       toast("Review submitted", "It will appear after moderation.");
       setRating(0);
       setComment("");
+      onSubmitted();
     } catch (error) {
       toast(
         "Could not submit review",

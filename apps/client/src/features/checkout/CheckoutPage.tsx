@@ -19,6 +19,7 @@ import { formatPrice } from "@/services/api";
 import { apiRequest, authenticatedRequest } from "@/features/auth/auth-client";
 import { useAuth } from "@/features/auth/useAuth";
 import { useCart } from "@/features/cart/useCart";
+import { fetchPublicStoreSettings } from "@/features/storefront/store-settings";
 import { ArrowButton } from "@/components/ArrowButton";
 import {
   Select,
@@ -99,6 +100,9 @@ export function CheckoutPage({ products }: { products: Product[] }) {
   >({});
   const [placed, setPlaced] = useState(false);
   const [placedOrderId, setPlacedOrderId] = useState<string | null>(null);
+  const [shippingRates, setShippingRates] = useState<
+    { governorate: string; price: number | null }[]
+  >([]);
   const [form, setForm] = useState({
     name: user?.name ?? "",
     phone: "",
@@ -124,36 +128,55 @@ export function CheckoutPage({ products }: { products: Product[] }) {
   const codAvailable = items.every(
     ({ product }) => product.cashOnDeliveryAvailable !== false,
   );
+  const selectedShippingRate = shippingRates.find(
+    (rate) => rate.governorate === form.governorate,
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchPublicStoreSettings()
+      .then((settings) => {
+        if (!cancelled) setShippingRates(settings.shippingRates);
+      })
+      .catch((loadError: unknown) => {
+        console.error("Unable to load delivery prices.", loadError);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     setError(null);
     if (!user || !csrfToken) return openAuth();
     if (!items.length) return setError("Your bag is empty.");
-    if (method === "cash_on_delivery") {
-      const validation = deliverySchema.safeParse(form);
-      if (!validation.success) {
-        const errors = z.flattenError(validation.error).fieldErrors;
-        setFieldErrors({
-          name: errors.name?.[0],
-          phone: errors.phone?.[0],
-          governorate: errors.governorate?.[0],
-          line1: errors.line1?.[0],
-          line2: errors.line2?.[0],
-          city: errors.city?.[0],
-          postalCode: errors.postalCode?.[0],
-        });
-        return;
-      }
-      setFieldErrors({});
+    const validation = deliverySchema.safeParse(form);
+    if (!validation.success) {
+      const errors = z.flattenError(validation.error).fieldErrors;
+      setFieldErrors({
+        name: errors.name?.[0],
+        phone: errors.phone?.[0],
+        governorate: errors.governorate?.[0],
+        line1: errors.line1?.[0],
+        line2: errors.line2?.[0],
+        city: errors.city?.[0],
+        postalCode: errors.postalCode?.[0],
+      });
+      return;
     }
+    setFieldErrors({});
+    if (!selectedShippingRate || selectedShippingRate.price === null)
+      return setError(
+        "Delivery pricing for this governorate is not available yet. Please contact the store.",
+      );
     setSubmitting(true);
     try {
       if (method === "stripe") {
         const { url } = await authenticatedRequest<{ url: string }>(
           "/checkout/stripe",
           csrfToken,
-          { method: "POST" },
+          { method: "POST", body: JSON.stringify(form) },
         );
         window.location.assign(url);
         return;
@@ -237,13 +260,11 @@ export function CheckoutPage({ products }: { products: Product[] }) {
                     />
                   </div>
                 </section>
-                {method === "cash_on_delivery" && (
-                  <DeliveryForm
-                    form={form}
-                    setForm={setForm}
-                    errors={fieldErrors}
-                  />
-                )}
+                <DeliveryForm
+                  form={form}
+                  setForm={setForm}
+                  errors={fieldErrors}
+                />
                 {error && (
                   <p
                     role="alert"
@@ -270,7 +291,12 @@ export function CheckoutPage({ products }: { products: Product[] }) {
               </>
             )}
           </form>
-          <OrderSummary items={items} subtotal={subtotal} />
+          <OrderSummary
+            items={items}
+            subtotal={subtotal}
+            shippingAmount={selectedShippingRate?.price ?? null}
+            governorate={form.governorate}
+          />
         </div>
       </div>
     </main>
@@ -437,9 +463,13 @@ function DeliveryForm({
 function OrderSummary({
   items,
   subtotal,
+  shippingAmount,
+  governorate,
 }: {
   items: CheckoutItem[];
   subtotal: number;
+  shippingAmount: number | null;
+  governorate: string;
 }) {
   return (
     <aside className="h-fit rounded-xl border border-border bg-card p-5 lg:sticky lg:top-6">
@@ -467,13 +497,28 @@ function OrderSummary({
           </li>
         ))}
       </ul>
-      <div className="mt-5 flex justify-between border-t border-border pt-4">
-        <span className="font-medium">Total</span>
-        <span className="font-medium">{formatPrice(subtotal)}</span>
-      </div>
-      <p className="mt-3 text-xs leading-5 text-muted-foreground">
-        Shipping will be calculated when delivery settings are added.
-      </p>
+      <dl className="mt-5 space-y-3 border-t border-border pt-4 text-sm">
+        <div className="flex justify-between gap-3">
+          <dt className="text-muted-foreground">Subtotal</dt>
+          <dd>{formatPrice(subtotal)}</dd>
+        </div>
+        <div className="flex justify-between gap-3">
+          <dt className="text-muted-foreground">
+            Delivery{governorate ? ` · ${governorate}` : ""}
+          </dt>
+          <dd>
+            {shippingAmount === null
+              ? "Select a governorate"
+              : formatPrice(shippingAmount * 100)}
+          </dd>
+        </div>
+        <div className="flex justify-between gap-3 border-t border-border pt-3 font-medium">
+          <dt>Total</dt>
+          <dd>
+            {formatPrice(subtotal + (shippingAmount ?? 0) * 100)}
+          </dd>
+        </div>
+      </dl>
     </aside>
   );
 }

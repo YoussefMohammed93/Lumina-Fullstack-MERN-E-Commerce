@@ -1,6 +1,9 @@
 import { Router } from "express";
+import { isValidObjectId } from "mongoose";
 import { Cart, Review, Wishlist } from "../models/commerce.model.js";
+import { Product } from "../models/product.model.js";
 import { requireAuth, requireCsrf } from "../middleware/auth.middleware.js";
+import { refreshProductReviewStats } from "./review.routes.js";
 
 const router = Router();
 
@@ -87,7 +90,13 @@ router.post(
   requireCsrf,
   async (req, res, next) => {
     try {
-      const rating = Number(req.body.rating);
+    const productId = req.params.productId;
+    if (typeof productId !== "string" || !isValidObjectId(productId))
+      return res.status(400).json({
+        success: false,
+        error: { message: "Choose a valid product." },
+      });
+    const rating = Number(req.body.rating);
       const comment = String(req.body.comment ?? "").trim();
 
       if (
@@ -105,11 +114,23 @@ router.post(
           },
         });
 
+      const product = await Product.exists({
+        _id: productId,
+        status: "active",
+        trashedAt: null,
+      });
+      if (!product)
+        return res.status(404).json({
+          success: false,
+          error: { message: "Product not found." },
+        });
+
       const review = await Review.findOneAndUpdate(
-        { userId: req.user!._id, productId: req.params.productId },
+        { userId: req.user!._id, productId },
         { rating, comment, status: "pending" },
         { new: true, upsert: true, setDefaultsOnInsert: true },
       );
+      await refreshProductReviewStats(productId);
       res.status(201).json({ success: true, data: review });
     } catch (error) {
       next(error);

@@ -55,15 +55,7 @@ router.post("/", async (req, res) => {
       );
       if (session.payment_status === "paid") {
         const metadata = session.metadata ?? {};
-        const shippingAddress = stripeShippingAddress(session);
-        const update = {
-          paymentStatus: "paid" as const,
-          stripePaymentIntentId:
-            typeof session.payment_intent === "string"
-              ? session.payment_intent
-              : undefined,
-          ...(shippingAddress ? { shippingAddress } : {}),
-        };
+        const stripeAddress = stripeShippingAddress(session);
         const pendingOrder =
           (await Order.findOne({
             stripeCheckoutSessionId: session.id,
@@ -75,6 +67,21 @@ router.post("/", async (req, res) => {
                 paymentStatus: { $ne: "paid" },
               })
             : null);
+        const shippingAddress = pendingOrder?.shippingAddress?.line1
+          ? pendingOrder.shippingAddress
+          : stripeAddress?.line1
+              ? stripeAddress
+              : undefined;
+        const update = {
+          paymentStatus: "paid" as const,
+          stripePaymentIntentId:
+              typeof session.payment_intent === "string"
+                ? session.payment_intent
+                : undefined,
+          ...(!pendingOrder?.shippingAddress?.line1 && shippingAddress
+              ? { shippingAddress }
+              : {}),
+        };
         if (pendingOrder && shippingAddress?.line1) {
           await User.updateOne(
             { _id: pendingOrder.userId },

@@ -285,6 +285,7 @@ router.get("/dashboard/overview", async (_req, res, next) => {
               0,
             ),
             total: order.amountTotal,
+            shippingAmount: order.shippingAmount ?? 0,
             currency: order.currency,
             paymentStatus: order.paymentStatus,
             fulfillmentStatus: normalizedFulfillmentStatus(
@@ -946,8 +947,15 @@ router.get("/orders", async (req, res, next) => {
               amount: item.unitAmount,
             })),
             total: order.amountTotal,
+            shippingAmount: order.shippingAmount ?? 0,
             currency: order.currency,
             address: addressLines,
+            shippingAddress: {
+              governorate: address.governorate ?? "",
+              city: address.city ?? "",
+              line1: address.line1 ?? "",
+              line2: address.line2 ?? "",
+            },
           };
         }),
         pagination: {

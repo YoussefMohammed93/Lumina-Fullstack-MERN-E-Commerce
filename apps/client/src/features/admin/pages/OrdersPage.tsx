@@ -84,7 +84,14 @@ interface AdminOrder {
     amount: number;
   }[];
   total: number;
+  shippingAmount: number;
   address: string[];
+  shippingAddress: {
+    governorate: string;
+    city: string;
+    line1: string;
+    line2: string;
+  };
 }
 
 interface OrdersApiOrder {
@@ -105,7 +112,14 @@ interface OrdersApiOrder {
     amount: number;
   }[];
   total: number;
+  shippingAmount: number;
   address: string[];
+  shippingAddress: {
+    governorate: string;
+    city: string;
+    line1: string;
+    line2: string;
+  };
 }
 
 interface OrdersApiResponse {
@@ -278,6 +292,16 @@ function OrderDetailDialog({
                   {line}
                 </p>
               ))}
+              <div className="mt-4 border-t border-border pt-3 text-xs text-muted-foreground">
+                <p>
+                  Delivery fee:{" "}
+                  <span className="font-medium text-foreground">
+                    {order.shippingAmount
+                      ? formatPrice(order.shippingAmount * 100)
+                      : "Complimentary"}
+                  </span>
+                </p>
+              </div>
             </section>
           </div>
 
@@ -297,13 +321,19 @@ function OrderDetailDialog({
           </section>
 
           <section className="rounded-md bg-muted/50 p-4">
-            <div className="flex justify-between gap-4 text-sm">
-              <span className="text-muted-foreground">
-                {order.paymentMethod} · {order.paymentStatus}
-              </span>
-              <span className="font-semibold tabular">
-                {formatPrice(order.total)}
-              </span>
+            <div className="ml-auto max-w-xs space-y-2 text-sm">
+              <div className="flex justify-between gap-4 text-muted-foreground">
+                <span>Delivery</span>
+                <span>{order.shippingAmount ? formatPrice(order.shippingAmount * 100) : "Complimentary"}</span>
+              </div>
+              <div className="flex justify-between gap-4 border-t border-border pt-2">
+                <span className="text-muted-foreground">
+                  {order.paymentMethod} · {order.paymentStatus}
+                </span>
+                <span className="font-semibold tabular">
+                  {formatPrice(order.total)}
+                </span>
+              </div>
             </div>
           </section>
         </DialogContent>
@@ -789,9 +819,22 @@ export function OrdersPage({ products }: { products: Product[] }) {
                     <span className="text-xs text-muted-foreground xl:hidden">
                       Total
                     </span>
-                    <span className="text-sm font-medium tabular">
-                      {formatPrice(order.total)}
-                    </span>
+                    <div className="xl:space-y-1">
+                      <p className="text-sm font-medium tabular">
+                        {formatPrice(order.total)}
+                      </p>
+                      <p className="max-w-40 truncate text-[11px] text-muted-foreground">
+                        Delivery ·{" "}
+                        {order.shippingAddress.governorate ||
+                          order.shippingAddress.city ||
+                          "Address unavailable"}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {order.shippingAmount
+                          ? formatPrice(order.shippingAmount * 100)
+                          : "Complimentary delivery"}
+                      </p>
+                    </div>
                   </div>
 
                   <div className="flex items-center justify-between gap-4 xl:block">

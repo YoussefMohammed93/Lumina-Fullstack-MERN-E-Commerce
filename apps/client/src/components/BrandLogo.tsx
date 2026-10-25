@@ -38,12 +38,21 @@ export function BrandLogo({
   );
 }
 
-export function BrandLoadingScreen({ label = "Loading" }: { label?: string }) {
+export function BrandLoadingScreen({
+  label = "Loading",
+  overlay = false,
+}: {
+  label?: string;
+  overlay?: boolean;
+}) {
   return (
     <main
       role="status"
       aria-live="polite"
-      className="flex min-h-screen flex-col items-center justify-center gap-5 overflow-hidden bg-background px-6 text-center"
+      className={cn(
+        "flex min-h-screen flex-col items-center justify-center gap-5 overflow-hidden bg-background px-6 text-center",
+        overlay && "fixed inset-0 z-[100]",
+      )}
     >
       <div aria-hidden="true" className="lumina-loader">
         <span />

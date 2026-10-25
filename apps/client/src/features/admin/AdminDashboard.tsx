@@ -15,6 +15,8 @@ import { OrdersPage } from "@/features/admin/pages/OrdersPage";
 import { NotificationsPage } from "@/features/admin/pages/NotificationsPage";
 import { JournalAdminPage } from "@/features/admin/pages/JournalAdminPage";
 import { NewsletterPage } from "@/features/admin/pages/NewsletterPage";
+import { ReviewsAdminPage } from "@/features/admin/pages/ReviewsAdminPage";
+import { StoreSettingsPage } from "@/features/admin/pages/StoreSettingsPage";
 import { AdminNotificationsProvider } from "@/features/admin/notifications/admin-notifications-context";
 import type { Product } from "@/types/product";
 import type { AdminDashboardOverview } from "@/features/admin/admin-dashboard-service";
@@ -108,10 +110,14 @@ export function AdminDashboard({ products }: { products: Product[] }) {
               <JournalAdminPage />
             ) : page === "newsletter" ? (
               <NewsletterPage />
+            ) : page === "reviews" ? (
+              <ReviewsAdminPage />
             ) : page === "orders" ? (
               <OrdersPage products={products} />
             ) : page === "notifications" ? (
               <NotificationsPage />
+            ) : page === "settings" ? (
+              <StoreSettingsPage />
             ) : page === "categories" ? (
               <CategoriesPage />
             ) : page === "customers" ? (

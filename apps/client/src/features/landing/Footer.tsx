@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
-import { Clock, Mail, MapPin } from "lucide-react";
+import { Clock, Mail, MapPin, Phone } from "lucide-react";
 import type { Category } from "@/types/product";
 import { fetchCategories } from "@/services/api";
+import {
+  fetchPublicStoreSettings,
+  type PublicStoreSettings,
+} from "@/features/storefront/store-settings";
 
 const COLUMNS = [
   {
@@ -28,8 +32,32 @@ const COLUMNS = [
   },
 ];
 
-export function Footer({ categories }: { categories?: Category[] }) {
+export function Footer({
+  categories,
+  onSettingsReady,
+}: {
+  categories?: Category[];
+  onSettingsReady?: () => void;
+}) {
   const [loadedCategories, setLoadedCategories] = useState<Category[]>([]);
+  const [storeSettings, setStoreSettings] =
+    useState<PublicStoreSettings | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    fetchPublicStoreSettings()
+      .then((settings) => {
+        if (!cancelled) setStoreSettings(settings);
+      })
+      .catch((error: unknown) => {
+        console.error("Unable to load footer store settings.", error);
+      })
+      .finally(() => {
+        if (!cancelled) onSettingsReady?.();
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [onSettingsReady]);
   useEffect(() => {
     if (categories !== undefined) return;
     let cancelled = false;
@@ -103,15 +131,25 @@ export function Footer({ categories }: { categories?: Category[] }) {
                 </svg>
               </a>
               <a
-                href="mailto:lumina@gmail.com"
+                href={`mailto:${storeSettings?.contactEmail ?? "lumina@gmail.com"}`}
+                aria-label={`Email ${storeSettings?.contactEmail ?? "Lumina"}`}
                 className="flex items-center gap-1.5 rounded-sm transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay"
               >
                 <Mail className="size-4" strokeWidth={1.25} />{" "}
               </a>
               <span className="flex items-center gap-1.5 text-[11px]">
                 <MapPin className="size-3.5" strokeWidth={1.25} />
-                Mansoura, Egypt
+                {storeSettings?.location ?? "Mansoura, Dakahlia, Egypt"}
               </span>
+              {storeSettings?.phone && (
+                <a
+                  href={`tel:${storeSettings.phone}`}
+                  className="flex items-center gap-1.5 text-[11px] transition-colors hover:text-foreground"
+                >
+                  <Phone className="size-3.5" strokeWidth={1.25} />
+                  {storeSettings.phone}
+                </a>
+              )}
               <span className="flex items-center gap-1.5 text-[11px]">
                 <Clock className="size-3.5" strokeWidth={1.25} />
                 Daily, 8 am–2 pm
@@ -145,7 +183,8 @@ export function Footer({ categories }: { categories?: Category[] }) {
 
         <div className="flex flex-col gap-4 border-t border-border/70 pt-6 text-[11px] text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
           <p>
-            © {new Date().getFullYear()} Lumina Studio. All rights reserved.
+            © {new Date().getFullYear()} {storeSettings?.storeName ?? "Lumina"}{" "}
+            Studio. All rights reserved.
           </p>
           <div className="flex flex-wrap items-center gap-5">
             <a

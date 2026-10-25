@@ -8,6 +8,7 @@ interface SafeImageProps {
   className?: string;
   wrapperClassName?: string;
   eager?: boolean;
+  onSettled?: () => void;
 }
 
 /**
@@ -20,6 +21,7 @@ export function SafeImage({
   className,
   wrapperClassName,
   eager = false,
+  onSettled,
 }: SafeImageProps) {
   const [failed, setFailed] = useState(false);
 
@@ -45,7 +47,11 @@ export function SafeImage({
       alt={alt}
       loading={eager ? "eager" : "lazy"}
       decoding="async"
-      onError={() => setFailed(true)}
+      onLoad={onSettled}
+      onError={() => {
+        setFailed(true);
+        onSettled?.();
+      }}
       className={cn("h-full w-full object-cover", className)}
     />
   );

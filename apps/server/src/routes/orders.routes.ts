@@ -97,7 +97,7 @@ function presentOrder(order: OrderRecord, user: OrderUser) {
       phone: address.phone ?? "",
       address: addressLines,
     },
-    shippingAmount: 0,
+    shippingAmount: order.shippingAmount ?? 0,
     amountTotal: order.amountTotal,
     currency: order.currency,
   };

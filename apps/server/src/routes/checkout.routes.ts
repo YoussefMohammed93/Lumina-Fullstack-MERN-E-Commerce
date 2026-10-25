@@ -21,39 +21,11 @@ import {
   restoreInventory,
   type InventoryReservationItem,
 } from "../lib/inventory.js";
+import { getStoreSettings } from "../lib/store-settings.js";
+import { isEgyptGovernorate } from "../lib/governorates.js";
 
 const router = Router();
 router.use(requireAuth);
-
-const governorates = new Set([
-  "Alexandria",
-  "Aswan",
-  "Asyut",
-  "Beheira",
-  "Beni Suef",
-  "Cairo",
-  "Dakahlia",
-  "Damietta",
-  "Faiyum",
-  "Gharbia",
-  "Giza",
-  "Ismailia",
-  "Kafr El Sheikh",
-  "Luxor",
-  "Matruh",
-  "Minya",
-  "Monufia",
-  "New Valley",
-  "North Sinai",
-  "Port Said",
-  "Qalyubia",
-  "Qena",
-  "Red Sea",
-  "Sharqia",
-  "Sohag",
-  "South Sinai",
-  "Suez",
-]);
 
 async function cartItemsForCheckout(userId: string) {
   const cart = await Cart.findOne({ userId }).lean();
@@ -97,10 +69,69 @@ function optionalString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
+function parseDeliveryAddress(value: unknown) {
+  if (!value || typeof value !== "object") return null;
+  const body = value as Record<string, unknown>;
+  const name = optionalString(body.name);
+  const phone = optionalString(body.phone);
+  const governorate = optionalString(body.governorate);
+  const line1 = optionalString(body.line1);
+  const line2 = optionalString(body.line2);
+  const city = optionalString(body.city);
+  const postalCode = optionalString(body.postalCode);
+  if (
+    !name ||
+    name.length < 2 ||
+    name.length > 80 ||
+    !phone ||
+    phone.length < 10 ||
+    phone.length > 20 ||
+    !governorate ||
+    !isEgyptGovernorate(governorate) ||
+    !line1 ||
+    line1.length < 5 ||
+    line1.length > 160 ||
+    (line2?.length ?? 0) > 160 ||
+    (city?.length ?? 0) > 80 ||
+    (postalCode?.length ?? 0) > 20
+  )
+    return null;
+  return {
+    name,
+    phone,
+    governorate,
+    line1,
+    line2,
+    city,
+    postalCode,
+    country: "EG",
+  };
+}
+
 router.post("/checkout/stripe", requireCsrf, async (req, res, next) => {
   let reservedItems: InventoryReservationItem[] = [];
   let createdOrderId: string | undefined;
   try {
+    const shippingAddress = parseDeliveryAddress(req.body);
+    if (!shippingAddress)
+      return res.status(400).json({
+        success: false,
+        error: { message: "Enter a valid delivery address." },
+      });
+    const settings = await getStoreSettings();
+    const shippingRate = settings.shippingRates.find(
+      (rate) => rate.governorate === shippingAddress.governorate,
+    );
+    if (!shippingRate || shippingRate.price === null)
+      return res.status(400).json({
+        success: false,
+        error: {
+          message:
+            "Delivery pricing for this governorate is not available yet. Please contact the store.",
+        },
+      });
+    const shippingAmount = shippingRate.price;
+    const shippingAmountMinorUnits = shippingAmount * 100;
     const items = await cartItemsForCheckout(String(req.user!._id));
     const requestedItems = inventoryForOrderItems(
       items.map((item) => ({
@@ -130,11 +161,13 @@ router.post("/checkout/stripe", requireCsrf, async (req, res, next) => {
       amountTotal: items.reduce(
         (total, item) => total + item.price * item.quantity,
         0,
-      ),
+      ) + shippingAmountMinorUnits,
+      shippingAmount,
 
       paymentMethod: "stripe",
       paymentStatus: "pending",
       fulfillmentStatus: "placed",
+      shippingAddress,
     });
     createdOrderId = String(order._id);
     const origin = process.env.CLIENT_ORIGIN ?? "http://localhost:3000";
@@ -145,16 +178,30 @@ router.post("/checkout/stripe", requireCsrf, async (req, res, next) => {
         customer_email: req.user!.email,
         client_reference_id: String(order._id),
         metadata: { orderId: String(order._id), userId: String(req.user!._id) },
-        line_items: items.map((item) => ({
-          price_data: {
-            currency: "egp",
-            product_data: { name: item.name },
-            unit_amount: item.price,
-          },
-          quantity: item.quantity,
-        })),
-        shipping_address_collection: { allowed_countries: ["EG"] },
-        phone_number_collection: { enabled: true },
+        line_items: [
+          ...items.map((item) => ({
+            price_data: {
+              currency: "egp",
+              product_data: { name: item.name },
+              unit_amount: item.price,
+            },
+            quantity: item.quantity,
+          })),
+          ...(shippingAmountMinorUnits > 0
+            ? [
+                {
+                  price_data: {
+                    currency: "egp",
+                    product_data: {
+                      name: `Delivery · ${shippingAddress.governorate}`,
+                    },
+                    unit_amount: shippingAmountMinorUnits,
+                  },
+                  quantity: 1,
+                },
+              ]
+            : []),
+        ],
         success_url: `${origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${origin}/checkout/cancel`,
       },
@@ -166,6 +213,10 @@ router.post("/checkout/stripe", requireCsrf, async (req, res, next) => {
     });
 
     if (!session.url) throw new Error("Stripe did not return a checkout URL.");
+    await User.updateOne(
+      { _id: req.user!._id },
+      { $set: { savedAddress: shippingAddress } },
+    );
     await notifyNewOrder({
       orderId: String(order._id),
       orderNumber: order.orderNumber ?? orderNumberForId(String(order._id)),
@@ -192,26 +243,26 @@ router.post(
   async (req, res, next) => {
     let reservedItems: InventoryReservationItem[] = [];
     try {
-      const body = req.body as Record<string, unknown>;
-      const name = optionalString(body.name);
-      const phone = optionalString(body.phone);
-      const governorate = optionalString(body.governorate);
-      const line1 = optionalString(body.line1);
-      const line2 = optionalString(body.line2);
-      const city = optionalString(body.city);
-      const postalCode = optionalString(body.postalCode);
-      if (!name || !phone || !governorate || !line1)
+      const shippingAddress = parseDeliveryAddress(req.body);
+      if (!shippingAddress)
         return res.status(400).json({
           success: false,
           error: {
-            message: "Name, phone, governorate, and address are required.",
+            message: "Enter a valid delivery address.",
           },
         });
 
-      if (!governorates.has(governorate))
+      const settings = await getStoreSettings();
+      const shippingRate = settings.shippingRates.find(
+        (rate) => rate.governorate === shippingAddress.governorate,
+      );
+      if (!shippingRate || shippingRate.price === null)
         return res.status(400).json({
           success: false,
-          error: { message: "Please choose a governorate in Egypt." },
+          error: {
+            message:
+              "Delivery pricing for this governorate is not available yet. Please contact the store.",
+          },
         });
 
       const items = await cartItemsForCheckout(String(req.user!._id));
@@ -259,20 +310,12 @@ router.post(
         amountTotal: items.reduce(
           (total, item) => total + item.price * item.quantity,
           0,
-        ),
+        ) + shippingRate.price * 100,
+        shippingAmount: shippingRate.price,
         paymentMethod: "cash_on_delivery",
         paymentStatus: "awaiting_cod",
         fulfillmentStatus: "confirmed",
-        shippingAddress: {
-          name,
-          phone,
-          governorate,
-          line1,
-          line2,
-          city,
-          postalCode,
-          country: "EG",
-        },
+        shippingAddress,
       });
       try {
         await User.updateOne(
@@ -288,7 +331,7 @@ router.post(
       await notifyNewOrder({
         orderId: String(order._id),
         orderNumber: order.orderNumber ?? orderNumberForId(String(order._id)),
-        customer: name,
+        customer: shippingAddress.name,
         amountTotal: order.amountTotal,
       });
       reservedItems = [];
@@ -332,7 +375,12 @@ router.get("/checkout/stripe/session/:sessionId", async (req, res, next) => {
       (session.metadata?.orderId ?? "") === String(order._id) &&
       (session.metadata?.userId ?? "") === String(req.user!._id)
     ) {
-      const shippingAddress = stripeShippingAddress(session);
+      const stripeAddress = stripeShippingAddress(session);
+      const shippingAddress = order.shippingAddress?.line1
+        ? order.shippingAddress
+        : stripeAddress?.line1
+          ? stripeAddress
+          : undefined;
       if (shippingAddress?.line1) {
         await User.updateOne(
           { _id: req.user!._id },
@@ -351,7 +399,9 @@ router.get("/checkout/stripe/session/:sessionId", async (req, res, next) => {
           $set: {
             paymentStatus: "paid",
             ...(paymentIntentId ? { stripePaymentIntentId: paymentIntentId } : {}),
-            ...(shippingAddress ? { shippingAddress } : {}),
+            ...(!order.shippingAddress?.line1 && shippingAddress
+              ? { shippingAddress }
+              : {}),
           },
         },
       );

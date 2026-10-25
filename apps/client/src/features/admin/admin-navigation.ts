@@ -7,6 +7,7 @@ import {
   Package,
   Settings,
   ShoppingBag,
+  Star,
   Tags,
   Trash2,
   Users,
@@ -25,6 +26,7 @@ export const adminNavigation = [
 export const adminWorkspaceNavigation = [
   { label: "Journal", href: "/admin/journal", icon: BookOpen },
   { label: "Newsletter", href: "/admin/newsletter", icon: Mail },
+  { label: "Reviews", href: "/admin/reviews", icon: Star },
 ] as const;
 
 export const adminSettingsNavigation = [

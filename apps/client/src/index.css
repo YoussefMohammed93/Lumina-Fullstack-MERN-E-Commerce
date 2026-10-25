@@ -201,6 +201,21 @@
   .marquee:hover .marquee-track {
     animation-play-state: paused;
   }
+  .announcement-marquee:hover .announcement-marquee-track {
+    animation-play-state: paused;
+  }
+  .announcement-marquee-track {
+    animation: announcement-marquee var(--announcement-duration, 34s) linear infinite;
+    will-change: transform;
+  }
+  @keyframes announcement-marquee {
+    from {
+      transform: translate3d(0, 0, 0);
+    }
+    to {
+      transform: translate3d(-50%, 0, 0);
+    }
+  }
   @keyframes marquee {
     from {
       transform: translate3d(0, 0, 0);
@@ -452,7 +467,26 @@
   }
   .reveal-in,
   .marquee-track,
+  .announcement-marquee-track,
   .lumina-loader {
     animation: none;
+  }
+  .announcement-marquee-track {
+    width: 100%;
+    transform: none;
+  }
+  .announcement-marquee-copy {
+    min-width: 0 !important;
+    justify-content: center;
+  }
+  .announcement-marquee-copy[aria-hidden="true"] {
+    display: none;
+  }
+  .announcement-marquee-copy > span:nth-child(n + 2) {
+    display: none;
+  }
+  .announcement-marquee-copy > span:first-child {
+    white-space: normal;
+    text-align: center;
   }
 }

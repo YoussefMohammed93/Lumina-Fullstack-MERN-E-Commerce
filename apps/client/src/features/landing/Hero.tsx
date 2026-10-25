@@ -3,9 +3,14 @@ import type { Product } from "@/types/product";
 import { SafeImage } from "@/components/motion/SafeImage";
 import { ArrowButton } from "@/components/ArrowButton";
 import { Reveal } from "@/components/motion/Reveal";
-import { formatPrice } from "@/services/api";
 
-export function Hero({ featured }: { featured: Product }) {
+export function Hero({
+  featured,
+  onImagesSettled,
+}: {
+  featured: Product;
+  onImagesSettled?: () => void;
+}) {
   return (
     <section
       id="top"
@@ -19,13 +24,6 @@ export function Hero({ featured }: { featured: Product }) {
 
       <div className="relative mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
         <div className="max-w-xl space-y-8 pb-2 lg:pb-10">
-          <Reveal>
-            <p className="eyebrow flex items-center gap-3 text-clay">
-              <span className="h-px w-8 bg-clay/50" />
-              Collection Nº 04 · Autumn
-            </p>
-          </Reveal>
-
           <Reveal delay={90}>
             <h1 className="display-hero text-balance">
               Objects for
@@ -88,22 +86,12 @@ export function Hero({ featured }: { featured: Product }) {
             <div className="rounded-[2.25rem] bg-foreground/[0.05] p-2 ring-1 ring-foreground/8">
               <div className="relative aspect-[4/5] md:aspect-square overflow-hidden rounded-[calc(2.25rem-0.5rem)] bg-muted">
                 <SafeImage
-                  src={featured.images[0]}
-                  alt={featured.name}
+                  src="/hero.webp"
+                  alt="Warm, thoughtfully furnished living room"
                   eager
+                  onSettled={onImagesSettled}
                   className="transition-transform duration-[1400ms] ease-luxe hover:scale-[1.03]"
                 />
-                <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 bg-gradient-to-t from-foreground/60 via-foreground/10 to-transparent p-5 pt-16">
-                  <div className="text-background">
-                    <p className="eyebrow text-background/70">Featured piece</p>
-                    <p className="mt-1 font-serif text-2xl leading-tight">
-                      {featured.name}
-                    </p>
-                  </div>
-                  <span className="tabular rounded-full bg-background/90 px-3 py-1 text-[11px] font-medium text-foreground">
-                    {formatPrice(featured.price)}
-                  </span>
-                </div>
               </div>
             </div>
           </Reveal>
@@ -118,11 +106,15 @@ export function Hero({ featured }: { featured: Product }) {
                 <SafeImage
                   src={featured.images[1] ?? featured.images[0]}
                   alt={`${featured.name} detail`}
+                  eager
+                  onSettled={onImagesSettled}
                 />
               </div>
               <figcaption className="flex items-center justify-between px-2.5 py-2">
                 <span className="eyebrow text-muted-foreground">Detail</span>
-                <span className="eyebrow text-clay">↗</span>
+                <span className="eyebrow text-clay">
+                  <ArrowUpRight className="size-3" strokeWidth={1.5} />  
+                </span>
               </figcaption>
             </figure>
           </Reveal>
