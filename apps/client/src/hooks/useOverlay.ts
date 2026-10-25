@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useSyncExternalStore } from "react";
 
 /** Locks body scroll while an overlay (drawer, menu, search) is open. */
 export function useScrollLock(locked: boolean): void {
@@ -14,15 +14,18 @@ export function useScrollLock(locked: boolean): void {
 
 /** Reports whether the viewport is at or above `query` (default md: 768px). */
 export function useMediaQuery(query = "(min-width: 768px)"): boolean {
-  const [matches, setMatches] = useState(false);
+  const subscribe = useCallback(
+    (onChange: () => void) => {
+      const media = window.matchMedia(query);
+      media.addEventListener("change", onChange);
+      return () => media.removeEventListener("change", onChange);
+    },
+    [query],
+  );
+  const getSnapshot = useCallback(
+    () => window.matchMedia(query).matches,
+    [query],
+  );
 
-  useEffect(() => {
-    const media = window.matchMedia(query);
-    setMatches(media.matches);
-    const onChange = (event: MediaQueryListEvent) => setMatches(event.matches);
-    media.addEventListener("change", onChange);
-    return () => media.removeEventListener("change", onChange);
-  }, [query]);
-
-  return matches;
+  return useSyncExternalStore(subscribe, getSnapshot, () => false);
 }

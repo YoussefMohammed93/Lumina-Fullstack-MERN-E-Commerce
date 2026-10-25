@@ -39,7 +39,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { PageHeader } from "@/features/admin/components/PageHeader";
 import { apiRequest, authenticatedRequest } from "@/features/auth/auth-client";
 import { useAuth } from "@/features/auth/useAuth";
-import { useToast } from "@/features/toast/ToastProvider";
+import { useToast } from "@/features/toast/toast-context";
 import type { JournalStory, JournalStoryStatus } from "@/types/journal";
 
 const PAGE_SIZE = 12;

@@ -229,7 +229,7 @@ export function Nav({
         <div className="px-4 pt-3 sm:px-6 lg:px-8">
           <header
             className={cn(
-              "relative mx-auto flex h-16 max-w-6xl items-center gap-3 rounded-full border px-2 pr-2 pl-5 transition-all duration-700 ease-luxe sm:gap-8 sm:pl-7",
+              "relative mx-auto flex h-16 max-w-6xl items-center gap-3 rounded-full border px-2 pr-2 pl-4 md:pl-3 transition-all duration-700 ease-luxe sm:gap-8 sm:pl-7",
               scrolled
                 ? "border-border/80 bg-background/80 shadow-[0_18px_40px_-30px_rgba(26,24,21,0.45)] backdrop-blur-sm"
                 : "border-transparent bg-background/40",

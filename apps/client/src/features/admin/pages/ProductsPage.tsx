@@ -45,7 +45,7 @@ import {
 } from "@/components/ui/tooltip";
 import { PageHeader } from "@/features/admin/components/PageHeader";
 import { formatPrice } from "@/services/api";
-import { useToast } from "@/features/toast/ToastProvider";
+import { useToast } from "@/features/toast/toast-context";
 import { Skeleton } from "@/components/ui/skeleton";
 import { z } from "zod";
 import {

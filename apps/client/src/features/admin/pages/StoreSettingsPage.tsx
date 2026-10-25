@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/features/admin/components/PageHeader";
 import { authenticatedRequest, apiRequest } from "@/features/auth/auth-client";
 import { useAuth } from "@/features/auth/useAuth";
-import { useToast } from "@/features/toast/ToastProvider";
+import { useToast } from "@/features/toast/toast-context";
 
 interface ShippingRate {
   governorate: string;

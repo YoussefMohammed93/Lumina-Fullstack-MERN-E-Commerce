@@ -20,7 +20,7 @@ import type { Category, Product } from "@/types/product";
 import { StorefrontLayout } from "@/components/StorefrontLayout";
 import { Skeleton } from "@/components/ui/skeleton";
 import { OrderHistorySection } from "@/features/orders/OrderTrackingPage";
-import { useToast } from "@/features/toast/ToastProvider";
+import { useToast } from "@/features/toast/toast-context";
 import { authenticatedRequest } from "./auth-client";
 import { useAuth } from "./useAuth";
 

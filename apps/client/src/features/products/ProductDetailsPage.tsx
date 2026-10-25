@@ -21,7 +21,7 @@ import { CartDrawer } from "@/features/landing/CartDrawer";
 import { WishlistDrawer } from "@/features/landing/WishlistDrawer";
 import { ProductCard } from "@/features/landing/ProductCard";
 import { useCart } from "@/features/cart/useCart";
-import { useToast } from "@/features/toast/ToastProvider";
+import { useToast } from "@/features/toast/toast-context";
 import {
   apiRequest,
   authenticatedRequest,

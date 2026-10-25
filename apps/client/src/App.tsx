@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import type { Category, Product, Testimonial } from "@/types/product";
 import {
   fetchCategories,
@@ -8,37 +8,79 @@ import {
 import { CartProvider } from "@/features/cart/CartProvider";
 import { ToastProvider } from "@/features/toast/ToastProvider";
 import { AuthProvider } from "@/features/auth/AuthProvider";
-import { LandingPage } from "@/features/landing/LandingPage";
-import { ShopPage, ShopSkeleton } from "@/features/shop/ShopPage";
-import { JournalPage } from "@/features/journal/JournalPage";
-import { AboutPage } from "@/features/about/AboutPage";
-import {
-  ProductDetailsPage,
-  ProductDetailsSkeleton,
-} from "@/features/products/ProductDetailsPage";
 import { AlertCircle, RefreshCw } from "lucide-react";
-import { AdminDashboard } from "@/features/admin/AdminDashboard";
-import {
-  SettingsPage,
-  SettingsSkeleton,
-} from "@/features/auth/SettingsPage";
-import {
-  OrderTrackingPage,
-  OrderTrackingSkeleton,
-} from "@/features/orders/OrderTrackingPage";
 import {
   StorefrontLayout,
   StorefrontLoadingLayout,
 } from "@/components/StorefrontLayout";
 import { BrandLoadingScreen } from "@/components/BrandLogo";
 import { useAuth } from "@/features/auth/useAuth";
-import { InfoPage } from "@/features/info/InfoPage";
-import { CartPage, CartSkeleton } from "@/features/cart/CartPage";
-import {
-  CheckoutPage,
-  OrderConfirmation,
-  StripeCheckoutSuccessPage,
-} from "@/features/checkout/CheckoutPage";
+
+const LandingPage = lazy(() =>
+  import("@/features/landing/LandingPage").then((module) => ({
+    default: module.LandingPage,
+  })),
+);
+const ShopPage = lazy(() =>
+  import("@/features/shop/ShopPage").then((module) => ({
+    default: module.ShopPage,
+  })),
+);
+const JournalPage = lazy(() =>
+  import("@/features/journal/JournalPage").then((module) => ({
+    default: module.JournalPage,
+  })),
+);
+const AboutPage = lazy(() =>
+  import("@/features/about/AboutPage").then((module) => ({
+    default: module.AboutPage,
+  })),
+);
+const ProductDetailsPage = lazy(() =>
+  import("@/features/products/ProductDetailsPage").then((module) => ({
+    default: module.ProductDetailsPage,
+  })),
+);
+const AdminDashboard = lazy(() =>
+  import("@/features/admin/AdminDashboard").then((module) => ({
+    default: module.AdminDashboard,
+  })),
+);
+const SettingsPage = lazy(() =>
+  import("@/features/auth/SettingsPage").then((module) => ({
+    default: module.SettingsPage,
+  })),
+);
+const OrderTrackingPage = lazy(() =>
+  import("@/features/orders/OrderTrackingPage").then((module) => ({
+    default: module.OrderTrackingPage,
+  })),
+);
+const InfoPage = lazy(() =>
+  import("@/features/info/InfoPage").then((module) => ({
+    default: module.InfoPage,
+  })),
+);
+const CartPage = lazy(() =>
+  import("@/features/cart/CartPage").then((module) => ({
+    default: module.CartPage,
+  })),
+);
+const CheckoutPage = lazy(() =>
+  import("@/features/checkout/CheckoutPage").then((module) => ({
+    default: module.CheckoutPage,
+  })),
+);
+const OrderConfirmation = lazy(() =>
+  import("@/features/checkout/CheckoutPage").then((module) => ({
+    default: module.OrderConfirmation,
+  })),
+);
+const StripeCheckoutSuccessPage = lazy(() =>
+  import("@/features/checkout/CheckoutPage").then((module) => ({
+    default: module.StripeCheckoutSuccessPage,
+  })),
+);
 
 interface StoreData {
   products: Product[];
@@ -152,26 +194,6 @@ export function App() {
   }
 
   if (!data) {
-    if (window.location.pathname === "/settings") {
-      return (
-        <StorefrontLoadingLayout>
-          <SettingsSkeleton />
-        </StorefrontLoadingLayout>
-      );
-    }
-    if (window.location.pathname.startsWith("/orders/")) {
-      return (
-        <StorefrontLoadingLayout>
-          <OrderTrackingSkeleton />
-        </StorefrontLoadingLayout>
-      );
-    }
-    if (window.location.pathname === "/cart") return <CartSkeleton />;
-    if (window.location.pathname === "/shop") {
-      return <ShopSkeleton />;
-    }
-    if (window.location.pathname.startsWith("/products/"))
-      return <ProductDetailsSkeleton />;
     return <BrandLoadingScreen label="Preparing the collection" />;
   }
 
@@ -179,90 +201,96 @@ export function App() {
     <AuthProvider>
       <ToastProvider>
         <CartProvider products={data.products}>
-          {window.location.pathname === "/admin" ||
-          window.location.pathname.startsWith("/admin/") ? (
-            <AdminDashboard products={data.products} />
-          ) : window.location.pathname === "/settings" ? (
-            <AuthenticatedRoute
-              products={data.products}
-              categories={data.categories}
-            >
-              <SettingsPage
+          <Suspense
+            fallback={<BrandLoadingScreen label="Preparing your page" />}
+          >
+            {window.location.pathname === "/admin" ||
+            window.location.pathname.startsWith("/admin/") ? (
+              <AdminDashboard products={data.products} />
+            ) : window.location.pathname === "/settings" ? (
+              <AuthenticatedRoute
                 products={data.products}
                 categories={data.categories}
+              >
+                <SettingsPage
+                  products={data.products}
+                  categories={data.categories}
+                />
+              </AuthenticatedRoute>
+            ) : window.location.pathname.startsWith("/orders/") ? (
+              <AuthenticatedRoute
+                products={data.products}
+                categories={data.categories}
+              >
+                <OrderTrackingPage
+                  orderId={decodeURIComponent(
+                    window.location.pathname
+                      .split("/")
+                      .filter(Boolean)
+                      .at(-1) ?? "",
+                  )}
+                  products={data.products}
+                  categories={data.categories}
+                />
+              </AuthenticatedRoute>
+            ) : window.location.pathname === "/cart" ? (
+              <CartPage products={data.products} />
+            ) : window.location.pathname === "/checkout" ? (
+              <StorefrontLayout
+                products={data.products}
+                categories={data.categories}
+              >
+                <CheckoutPage products={data.products} />
+              </StorefrontLayout>
+            ) : window.location.pathname === "/checkout/success" ? (
+              <StripeCheckoutSuccessPage />
+            ) : window.location.pathname === "/checkout/cancel" ? (
+              <OrderConfirmation
+                title="Checkout cancelled"
+                message="Your bag is still saved, so you can return whenever you are ready."
               />
-            </AuthenticatedRoute>
-          ) : window.location.pathname.startsWith("/orders/") ? (
-            <AuthenticatedRoute
-              products={data.products}
-              categories={data.categories}
-            >
-              <OrderTrackingPage
-                orderId={decodeURIComponent(
+            ) : window.location.pathname === "/shop" ? (
+              <ShopPage products={data.products} categories={data.categories} />
+            ) : window.location.pathname === "/about" ? (
+              <AboutPage products={data.products} />
+            ) : window.location.pathname === "/shipping-returns" ? (
+              <InfoPage page="shipping" products={data.products} />
+            ) : window.location.pathname === "/care-guide" ? (
+              <InfoPage page="care" products={data.products} />
+            ) : window.location.pathname === "/faq" ? (
+              <InfoPage page="faq" products={data.products} />
+            ) : window.location.pathname === "/privacy" ? (
+              <InfoPage page="privacy" products={data.products} />
+            ) : window.location.pathname === "/terms" ? (
+              <InfoPage page="terms" products={data.products} />
+            ) : window.location.pathname === "/journal" ||
+              window.location.pathname.startsWith("/journal/") ? (
+              <JournalPage
+                products={data.products}
+                slug={
+                  window.location.pathname.startsWith("/journal/")
+                    ? window.location.pathname.split("/").filter(Boolean).at(-1)
+                    : undefined
+                }
+              />
+            ) : window.location.pathname.startsWith("/products/") ? (
+              <ProductDetailsPage
+                products={data.products}
+                slug={decodeURIComponent(
                   window.location.pathname
                     .split("/")
                     .filter(Boolean)
                     .at(-1) ?? "",
                 )}
+              />
+            ) : (
+              <LandingPage
                 products={data.products}
                 categories={data.categories}
+                testimonials={data.testimonials}
               />
-            </AuthenticatedRoute>
-          ) : window.location.pathname === "/cart" ? (
-            <CartPage products={data.products} />
-          ) : window.location.pathname === "/checkout" ? (
-            <StorefrontLayout
-              products={data.products}
-              categories={data.categories}
-            >
-              <CheckoutPage products={data.products} />
-            </StorefrontLayout>
-          ) : window.location.pathname === "/checkout/success" ? (
-            <StripeCheckoutSuccessPage />
-          ) : window.location.pathname === "/checkout/cancel" ? (
-            <OrderConfirmation
-              title="Checkout cancelled"
-              message="Your bag is still saved, so you can return whenever you are ready."
-            />
-          ) : window.location.pathname === "/shop" ? (
-            <ShopPage products={data.products} categories={data.categories} />
-          ) : window.location.pathname === "/about" ? (
-            <AboutPage products={data.products} />
-          ) : window.location.pathname === "/shipping-returns" ? (
-            <InfoPage page="shipping" products={data.products} />
-          ) : window.location.pathname === "/care-guide" ? (
-            <InfoPage page="care" products={data.products} />
-          ) : window.location.pathname === "/faq" ? (
-            <InfoPage page="faq" products={data.products} />
-          ) : window.location.pathname === "/privacy" ? (
-            <InfoPage page="privacy" products={data.products} />
-          ) : window.location.pathname === "/terms" ? (
-            <InfoPage page="terms" products={data.products} />
-          ) : window.location.pathname === "/journal" ||
-            window.location.pathname.startsWith("/journal/") ? (
-            <JournalPage
-              products={data.products}
-              slug={
-                window.location.pathname.startsWith("/journal/")
-                  ? window.location.pathname.split("/").filter(Boolean).at(-1)
-                  : undefined
-              }
-            />
-          ) : window.location.pathname.startsWith("/products/") ? (
-            <ProductDetailsPage
-              products={data.products}
-              slug={decodeURIComponent(
-                window.location.pathname.split("/").filter(Boolean).at(-1) ??
-                  "",
-              )}
-            />
-          ) : (
-            <LandingPage
-              products={data.products}
-              categories={data.categories}
-              testimonials={data.testimonials}
-            />
-          )}
+            )}
+          </Suspense>
         </CartProvider>
       </ToastProvider>
     </AuthProvider>

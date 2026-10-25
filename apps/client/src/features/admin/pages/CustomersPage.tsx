@@ -42,7 +42,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { PageHeader } from "@/features/admin/components/PageHeader";
-import { useToast } from "@/features/toast/ToastProvider";
+import { useToast } from "@/features/toast/toast-context";
 import { CustomerDetailDialog } from "@/features/admin/components/CustomerDetailDialog";
 
 // ── Types ──────────────────────────────────────────────────────────────

@@ -19,7 +19,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/features/admin/components/PageHeader";
 import { formatPrice } from "@/services/api";
-import { useToast } from "@/features/toast/ToastProvider";
+import { useToast } from "@/features/toast/toast-context";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   AlertDialog,

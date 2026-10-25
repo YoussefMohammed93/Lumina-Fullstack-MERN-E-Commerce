@@ -11,7 +11,7 @@ import {
 import type { Category } from "@/types/product";
 import { apiRequest, authenticatedRequest } from "@/features/auth/auth-client";
 import { useAuth } from "@/features/auth/useAuth";
-import { useToast } from "@/features/toast/ToastProvider";
+import { useToast } from "@/features/toast/toast-context";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";

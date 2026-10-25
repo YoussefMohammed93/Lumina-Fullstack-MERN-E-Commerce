@@ -5,7 +5,7 @@ import { formatPrice } from "@/services/api";
 import { SafeImage } from "@/components/motion/SafeImage";
 import { StarRating } from "@/components/StarRating";
 import { useCart } from "@/features/cart/useCart";
-import { useToast } from "@/features/toast/ToastProvider";
+import { useToast } from "@/features/toast/toast-context";
 import { cn } from "@/lib/utils";
 
 export function ProductCard({

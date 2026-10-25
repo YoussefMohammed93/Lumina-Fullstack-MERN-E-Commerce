@@ -3,7 +3,7 @@ import { ArrowRight, Check, LoaderCircle } from "lucide-react";
 import { Reveal } from "@/components/motion/Reveal";
 import { cn } from "@/lib/utils";
 import { apiRequest } from "@/features/auth/auth-client";
-import { useToast } from "@/features/toast/ToastProvider";
+import { useToast } from "@/features/toast/toast-context";
 
 function validateEmail(value: string) {
   if (value.length > 254) return "Email addresses must be 254 characters or fewer.";

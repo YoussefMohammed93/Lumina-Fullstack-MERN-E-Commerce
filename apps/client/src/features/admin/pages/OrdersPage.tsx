@@ -35,7 +35,7 @@ import { formatPrice } from "@/services/api";
 import type { Product } from "@/types/product";
 import { SafeImage } from "@/components/motion/SafeImage";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useToast } from "@/features/toast/ToastProvider";
+import { useToast } from "@/features/toast/toast-context";
 import { apiRequest, authenticatedRequest } from "@/features/auth/auth-client";
 import { useAuth } from "@/features/auth/useAuth";
 

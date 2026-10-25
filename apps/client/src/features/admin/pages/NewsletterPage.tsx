@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/tooltip";
 import { PageHeader } from "@/features/admin/components/PageHeader";
 import { apiRequest } from "@/features/auth/auth-client";
-import { useToast } from "@/features/toast/ToastProvider";
+import { useToast } from "@/features/toast/toast-context";
 
 const PAGE_SIZE = 20;
 
