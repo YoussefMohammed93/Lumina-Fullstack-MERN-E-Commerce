@@ -25,6 +25,7 @@ import { CartDrawer } from "@/features/landing/CartDrawer";
 import { WishlistDrawer } from "@/features/landing/WishlistDrawer";
 import { ProductCard } from "@/features/landing/ProductCard";
 import { Skeleton } from "@/components/ui/skeleton";
+import { BrandLogo } from "@/components/BrandLogo";
 
 const PRODUCTS_PER_PAGE = 8;
 const sortOptions = [
@@ -216,9 +217,7 @@ export function ShopSkeleton() {
   return (
     <div className="min-h-screen overflow-x-clip bg-background">
       <header className="mx-4 mt-3 flex h-16 max-w-6xl items-center rounded-full border border-border/50 px-5 sm:mx-6 lg:mx-auto sm:px-7">
-        <span className="font-serif text-[22px] tracking-[0.18em] uppercase">
-          Lumina
-        </span>
+        <BrandLogo className="h-10 w-10 md:h-8 md:w-[132px]" />
         <div className="ml-12 hidden gap-6 md:flex">
           <Skeleton className="h-3 w-9" />
           <Skeleton className="h-3 w-16" />

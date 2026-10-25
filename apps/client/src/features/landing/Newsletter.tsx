@@ -1,14 +1,54 @@
 import { useState, type FormEvent } from "react";
-import { ArrowRight, Check } from "lucide-react";
+import { ArrowRight, Check, LoaderCircle } from "lucide-react";
 import { Reveal } from "@/components/motion/Reveal";
 import { cn } from "@/lib/utils";
+import { apiRequest } from "@/features/auth/auth-client";
+import { useToast } from "@/features/toast/ToastProvider";
+
+function validateEmail(value: string) {
+  if (value.length > 254) return "Email addresses must be 254 characters or fewer.";
+  const parts = value.split("@");
+  if (parts.length !== 2)
+    return "Enter an email address in the format name@example.com.";
+
+  const [localPart, domain] = parts;
+  if (
+    !localPart ||
+    localPart.length > 64 ||
+    localPart.startsWith(".") ||
+    localPart.endsWith(".") ||
+    localPart.includes("..") ||
+    !/^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+$/.test(localPart)
+  )
+    return "Check the name before the @ in your email address.";
+  if (domain.length > 253)
+    return "The domain in your email address is too long.";
+
+  const labels = domain.split(".");
+  if (
+    labels.length < 2 ||
+    !labels.every(
+      (label) =>
+        label.length > 0 &&
+        label.length <= 63 &&
+        /^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$/.test(label),
+    ) ||
+    !/^[A-Za-z]{2,}$/.test(labels.at(-1) ?? "")
+  )
+    return "Enter a valid email domain, such as example.com.";
+
+  return null;
+}
 
 export function Newsletter() {
+  const { toast } = useToast();
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [subscribed, setSubscribed] = useState(false);
+  const [alreadySubscribed, setAlreadySubscribed] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const value = email.trim();
 
@@ -16,13 +56,39 @@ export function Newsletter() {
       setError("Please enter your email address.");
       return;
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value)) {
-      setError("That address doesn’t look quite right.");
+    const validationError = validateEmail(value);
+    if (validationError) {
+      setError(validationError);
       return;
     }
 
     setError(null);
-    setSubscribed(true);
+    setSubmitting(true);
+    try {
+      const result = await apiRequest<{
+        subscribed: boolean;
+        alreadySubscribed: boolean;
+      }>("/newsletter", {
+        method: "POST",
+        body: JSON.stringify({ email: value }),
+      });
+      setAlreadySubscribed(result.alreadySubscribed);
+      setSubscribed(result.subscribed);
+      toast(
+        result.alreadySubscribed ? "You’re already subscribed" : "You’re on the list",
+        result.alreadySubscribed
+          ? "This email is already signed up."
+          : "Thank you for joining the journal.",
+      );
+    } catch (submitError: unknown) {
+      setError(
+        submitError instanceof Error
+          ? submitError.message
+          : "Unable to subscribe right now. Please try again.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -52,7 +118,9 @@ export function Newsletter() {
                 <span className="flex size-6 items-center justify-center rounded-full bg-clay text-background">
                   <Check className="size-3.5" strokeWidth={2} />
                 </span>
-                You’re on the list. Welcome.
+                {alreadySubscribed
+                  ? "You’re already on the list. Welcome back."
+                  : "You’re on the list. Welcome."}
               </div>
             ) : (
               <form
@@ -67,6 +135,15 @@ export function Newsletter() {
                   id="newsletter-email"
                   type="email"
                   value={email}
+                  disabled={submitting}
+                  required
+                  maxLength={254}
+                  autoComplete="email"
+                  inputMode="email"
+                  onBlur={() => {
+                    const value = email.trim();
+                    if (value) setError(validateEmail(value));
+                  }}
                   onChange={(event) => {
                     setEmail(event.target.value);
                     if (error) setError(null);
@@ -81,11 +158,16 @@ export function Newsletter() {
                 />
                 <button
                   type="submit"
-                  className="group inline-flex h-11 items-center justify-center gap-2 rounded-full bg-primary pr-1.5 pl-5 text-[13px] font-medium text-primary-foreground transition-[background-color,transform] duration-500 ease-luxe hover:bg-primary/90 active:scale-[0.98]"
+                  disabled={submitting}
+                  className="group inline-flex h-11 items-center justify-center gap-2 rounded-full bg-primary pr-1.5 pl-5 text-[13px] font-medium text-primary-foreground transition-[background-color,transform] duration-500 ease-luxe hover:bg-primary/90 active:scale-[0.98] disabled:cursor-wait disabled:opacity-70"
                 >
-                  Subscribe
+                  {submitting ? "Joining" : "Subscribe"}
                   <span className="flex size-8 items-center justify-center rounded-full bg-background/15 transition-transform duration-500 ease-luxe group-hover:translate-x-0.5">
-                    <ArrowRight className="size-3.5" strokeWidth={1.5} />
+                    {submitting ? (
+                      <LoaderCircle className="size-3.5 animate-spin" />
+                    ) : (
+                      <ArrowRight className="size-3.5" strokeWidth={1.5} />
+                    )}
                   </span>
                 </button>
               </form>

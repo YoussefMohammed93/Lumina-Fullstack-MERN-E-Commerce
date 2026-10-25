@@ -44,13 +44,27 @@ function Wordmark() {
   return (
     <a
       href="/"
-      className="flex items-baseline gap-2 font-serif text-[22px] leading-none tracking-[0.18em] uppercase"
+      className="flex shrink-0 items-center"
       aria-label="LUMINA home"
     >
-      Lumina
-      <span className="eyebrow hidden translate-y-[-1px] text-muted-foreground sm:inline">
-        Est. 2019
-      </span>
+      <span
+        role="img"
+        aria-label="Lumina"
+        className="hidden h-9 w-[145px] bg-center bg-no-repeat md:block"
+        style={{
+          backgroundImage: "url('/logo-text.png')",
+          backgroundSize: "155px 60px",
+        }}
+      />
+      <span
+        role="img"
+        aria-label="Lumina"
+        className="size-10 bg-center bg-no-repeat md:hidden"
+        style={{
+          backgroundImage: "url('/logo-icon.png')",
+          backgroundSize: "56px 56px",
+        }}
+      />
     </a>
   );
 }

@@ -1,10 +1,9 @@
 import {
-  BarChart3,
   Bell,
-  Boxes,
   Archive,
-  FileText,
+  BookOpen,
   LayoutDashboard,
+  Mail,
   Package,
   Settings,
   ShoppingBag,
@@ -24,9 +23,8 @@ export const adminNavigation = [
 ] as const;
 
 export const adminWorkspaceNavigation = [
-  { label: "Inventory", href: "/admin/inventory", icon: Boxes },
-  { label: "Analytics", href: "/admin/analytics", icon: BarChart3 },
-  { label: "Content", href: "/admin/content", icon: FileText },
+  { label: "Journal", href: "/admin/journal", icon: BookOpen },
+  { label: "Newsletter", href: "/admin/newsletter", icon: Mail },
 ] as const;
 
 export const adminSettingsNavigation = [

@@ -18,24 +18,32 @@ function TooltipContent({
   className,
   side = "top",
   sideOffset = 4,
+  showArrow = true,
   children,
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Popup> & {
   side?: React.ComponentProps<typeof TooltipPrimitive.Positioner>["side"];
   sideOffset?: number;
+  showArrow?: boolean;
 }) {
   return (
     <TooltipPrimitive.Portal>
-      <TooltipPrimitive.Positioner side={side} sideOffset={sideOffset}>
+      <TooltipPrimitive.Positioner
+        side={side}
+        sideOffset={sideOffset}
+        className="z-[100]"
+      >
         <TooltipPrimitive.Popup
           className={cn(
-            "z-50 rounded-md bg-foreground px-2.5 py-1.5 text-xs text-background shadow-md",
+            "whitespace-nowrap rounded-md bg-foreground px-2.5 py-1.5 text-xs text-background shadow-md",
             className,
           )}
           {...props}
         >
           {children}
-          <TooltipPrimitive.Arrow className="size-2 rotate-45 bg-foreground" />
+          {showArrow && (
+            <TooltipPrimitive.Arrow className="size-2 rotate-45 bg-foreground" />
+          )}
         </TooltipPrimitive.Popup>
       </TooltipPrimitive.Positioner>
     </TooltipPrimitive.Portal>

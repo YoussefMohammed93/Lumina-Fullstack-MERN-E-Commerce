@@ -1,7 +1,13 @@
-import { LogOut, PanelLeftClose, PanelLeftOpen, Store, X } from "lucide-react";
+import { LogOut, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import type { ComponentType } from "react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import {
   adminNavigation,
@@ -37,52 +43,68 @@ function NavigationGroup({
   onNavigate?: () => void;
 }) {
   return (
-    <nav className="space-y-1">
-      {items.map((item) => {
-        const active = pathname === item.href;
-        const Icon = item.icon;
-        const hasUnread =
-          item.label === "Notifications" && unreadCount > 0;
-        return (
-          <a
-            key={item.href}
-            href={item.href}
-            onClick={onNavigate}
-            title={
-              collapsed
-                ? hasUnread
-                  ? `${item.label} (${unreadCount} unread)`
-                  : item.label
-                : undefined
-            }
-            className={cn(
-              "relative flex h-10 items-center gap-3 rounded-xl px-3 text-sm transition-colors",
-              active
-                ? "bg-sidebar-accent text-foreground"
-                : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
-              collapsed && "justify-center px-0",
-            )}
-          >
-            <Icon className="size-4 shrink-0" strokeWidth={1.6} />
-            {!collapsed && <span className="min-w-0 flex-1">{item.label}</span>}
-            {hasUnread && (
-              <span
-                className={cn(
-                  "grid min-h-4 min-w-4 place-items-center rounded-full bg-clay px-1 text-[9px] font-semibold text-white",
-                  collapsed && "absolute top-1 right-1",
-                )}
+    <TooltipProvider delay={400}>
+      <nav className="space-y-1">
+        {items.map((item) => {
+          const active = pathname === item.href;
+          const Icon = item.icon;
+          const hasUnread = item.label === "Notifications" && unreadCount > 0;
+          const link = (
+            <a
+              href={item.href}
+              onClick={onNavigate}
+              aria-label={
+                collapsed && hasUnread
+                  ? `${item.label}, ${unreadCount} unread`
+                  : collapsed
+                    ? item.label
+                    : undefined
+              }
+              className={cn(
+                "relative flex h-10 items-center gap-3 rounded-xl px-3 text-sm transition-colors",
+                active
+                  ? "bg-sidebar-accent text-foreground"
+                  : "text-muted-foreground hover:bg-sidebar-accent hover:text-foreground",
+                collapsed && "justify-center px-0",
+              )}
+            >
+              <Icon className="size-4 shrink-0" strokeWidth={1.6} />
+              {!collapsed && (
+                <span className="min-w-0 flex-1">{item.label}</span>
+              )}
+              {hasUnread && (
+                <span
+                  className={cn(
+                    "grid min-h-4 min-w-4 place-items-center rounded-full bg-clay px-1 text-[9px] font-semibold leading-none text-white",
+                    collapsed && "absolute -top-1 -right-1",
+                  )}
+                  aria-hidden="true"
+                >
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              )}
+            </a>
+          );
+
+          return collapsed ? (
+            <Tooltip key={item.href}>
+              <TooltipTrigger render={link} />
+              <TooltipContent
+                side="right"
+                sideOffset={10}
+                showArrow={false}
               >
-                {collapsed
-                  ? ""
-                  : unreadCount > 99
-                    ? "99+"
-                    : unreadCount}
-              </span>
-            )}
-          </a>
-        );
-      })}
-    </nav>
+                {hasUnread
+                  ? `${item.label} (${unreadCount} unread)`
+                  : item.label}
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            <div key={item.href}>{link}</div>
+          );
+        })}
+      </nav>
+    </TooltipProvider>
   );
 }
 
@@ -166,14 +188,29 @@ export function AdminSidebar({
         >
           <a
             href="/"
-            className="flex items-center gap-2.5"
+            className={cn("flex items-center", collapsed ? "justify-center" : "")}
             title="View storefront"
           >
-            <span className="grid size-9 place-items-center rounded-xl bg-foreground text-background">
-              <Store className="size-4" strokeWidth={1.5} />
-            </span>
-            {!collapsed && (
-              <span className="font-serif text-xl tracking-tight">Lumina</span>
+            {collapsed ? (
+              <span
+                role="img"
+                aria-label="Lumina"
+                className="size-10 bg-center bg-no-repeat"
+                style={{
+                  backgroundImage: "url('/logo-icon.png')",
+                  backgroundSize: "56px 56px",
+                }}
+              />
+            ) : (
+              <span
+                role="img"
+                aria-label="Lumina"
+                className="h-9 w-[145px] bg-center bg-no-repeat"
+                style={{
+                  backgroundImage: "url('/logo-text.png')",
+                  backgroundSize: "155px 60px",
+                }}
+              />
             )}
           </a>
           {!collapsed && (
@@ -217,11 +254,16 @@ export function AdminSidebar({
         aria-label="Mobile navigation"
       >
         <div className="flex items-center justify-between px-1">
-          <a href="/" className="flex items-center gap-2.5">
-            <span className="grid size-9 place-items-center rounded-xl bg-foreground text-background">
-              <Store className="size-4" strokeWidth={1.5} />
-            </span>
-            <span className="font-serif text-xl tracking-tight">Lumina</span>
+          <a href="/" className="flex items-center" title="View storefront">
+            <span
+              role="img"
+              aria-label="Lumina"
+              className="h-9 w-[145px] bg-center bg-no-repeat"
+              style={{
+                backgroundImage: "url('/logo-text.png')",
+                backgroundSize: "155px 60px",
+              }}
+            />
           </a>
           <Button
             variant="ghost"

@@ -311,12 +311,22 @@ router.post("/uploads/signature", requireCsrf, (_req, res) => {
       });
   const timestamp = Math.floor(Date.now() / 1000);
   const type = _req.body?.type;
-  if (type !== undefined && type !== "product" && type !== "category")
+  if (
+    type !== undefined &&
+    type !== "product" &&
+    type !== "category" &&
+    type !== "journal"
+  )
     return res.status(400).json({
       success: false,
       error: { message: "Choose a valid image upload type." },
     });
-  const folder = type === "category" ? "lumina/categories" : "lumina/products";
+  const folder =
+    type === "category"
+      ? "lumina/categories"
+      : type === "journal"
+        ? "lumina/journal"
+        : "lumina/products";
   const signature = createHash("sha1")
     .update(`folder=${folder}&timestamp=${timestamp}${apiSecret}`)
     .digest("hex");

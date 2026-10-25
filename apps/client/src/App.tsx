@@ -30,6 +30,7 @@ import {
   StorefrontLayout,
   StorefrontLoadingLayout,
 } from "@/components/StorefrontLayout";
+import { BrandLoadingScreen } from "@/components/BrandLogo";
 import { useAuth } from "@/features/auth/useAuth";
 import { InfoPage } from "@/features/info/InfoPage";
 import { CartPage, CartSkeleton } from "@/features/cart/CartPage";
@@ -171,25 +172,7 @@ export function App() {
     }
     if (window.location.pathname.startsWith("/products/"))
       return <ProductDetailsSkeleton />;
-    return (
-      <div className="flex min-h-screen items-center justify-center overflow-hidden bg-background px-6">
-        <div
-          aria-hidden="true"
-          className="grain-texture pointer-events-none fixed inset-0 opacity-[0.035] mix-blend-multiply"
-        />
-        <div className="relative flex flex-col items-center gap-5">
-          <div aria-hidden="true" className="lumina-loader">
-            <span />
-          </div>
-          <span className="font-serif text-[22px] tracking-[0.18em] uppercase">
-            Lumina
-          </span>
-          <span className="eyebrow text-muted-foreground">
-            Preparing the collection
-          </span>
-        </div>
-      </div>
-    );
+    return <BrandLoadingScreen label="Preparing the collection" />;
   }
 
   return (

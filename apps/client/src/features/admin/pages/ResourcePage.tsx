@@ -26,20 +26,13 @@ const content: Record<
     title: "Customers",
     description: "View customer profiles, order history, and lifetime value.",
   },
-  inventory: {
-    title: "Inventory",
-    description:
-      "Keep stock levels healthy and stay ahead of replenishment needs.",
+  journal: {
+    title: "Journal",
+    description: "Manage editorial stories and the storefront journal.",
   },
-  analytics: {
-    title: "Analytics",
-    description:
-      "Understand performance across sales, customers, and products.",
-  },
-  content: {
-    title: "Content",
-    description:
-      "Manage editorial stories and the storefront content experience.",
+  newsletter: {
+    title: "Newsletter",
+    description: "Manage newsletter subscribers and email updates.",
   },
   notifications: {
     title: "Notifications",

@@ -6,7 +6,6 @@ import {
   CreditCard,
   Package,
   ShoppingBag,
-  TrendingUp,
   Users,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -26,10 +25,13 @@ const palette = {
 };
 
 const metricIcons = {
-  "Paid revenue": { icon: CircleDollarSign, tone: palette.green },
-  Orders: { icon: ShoppingBag, tone: palette.blue },
-  Customers: { icon: Users, tone: palette.violet },
-  "Products sold": { icon: Package, tone: palette.amber },
+  "Paid revenue": {
+    icon: CircleDollarSign,
+    tone: "bg-emerald-500/10 text-emerald-700",
+  },
+  Orders: { icon: ShoppingBag, tone: "bg-blue-500/10 text-blue-700" },
+  Customers: { icon: Users, tone: "bg-violet-500/10 text-violet-700" },
+  "Products sold": { icon: Package, tone: "bg-amber-500/10 text-amber-700" },
 };
 
 interface DashboardPageProps {
@@ -43,19 +45,22 @@ interface DashboardPageProps {
 function DashboardContentSkeleton() {
   return (
     <>
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Loading overview metrics">
+      <section
+        className="grid grid-cols-2 gap-3 xl:grid-cols-4"
+        aria-label="Loading overview metrics"
+      >
         {Array.from({ length: 4 }, (_, index) => (
           <Card
             key={index}
-            className="rounded-md border-0 shadow-none ring-1 ring-foreground/8"
+            className="gap-4 rounded-md border-0 py-4 shadow-none ring-1 ring-foreground/8 sm:gap-5 sm:py-5"
           >
-            <CardHeader className="flex-row items-center justify-between space-y-0">
-              <Skeleton className="h-4 w-24" />
-              <Skeleton className="size-9 rounded-xl" />
-            </CardHeader>
-            <CardContent>
-              <Skeleton className="h-8 w-36" />
-              <Skeleton className="mt-3 h-3 w-48" />
+            <CardContent className="flex items-start justify-between gap-3 px-4 sm:px-5">
+              <div className="space-y-3">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-7 w-36" />
+                <Skeleton className="h-3 w-32" />
+              </div>
+              <Skeleton className="size-9 shrink-0 rounded-md" />
             </CardContent>
           </Card>
         ))}
@@ -288,37 +293,31 @@ export function DashboardPage({
           </button>
         </p>
       )}
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         {metrics.map((metric) => {
           const Icon = metric.icon;
           return (
             <Card
               key={metric.label}
-              className="rounded-md border-0 shadow-none ring-1 ring-foreground/8"
+              className="gap-4 rounded-md border-0 py-4 shadow-none ring-1 ring-foreground/8 sm:gap-5 sm:py-5"
             >
-              <CardHeader className="flex-row items-center justify-between space-y-0">
-                <CardTitle className="font-sans text-sm font-semibold tracking-[0.01em] text-muted-foreground">
-                  {metric.label}
-                </CardTitle>
+              <CardContent className="flex items-start justify-between gap-3 px-4 sm:px-5">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-muted-foreground">
+                    {metric.label}
+                  </p>
+                  <p className="mt-3 text-2xl font-semibold tracking-tight">
+                    {metric.value}
+                  </p>
+                  <p className="mt-1.5 text-xs text-muted-foreground">
+                    {metric.detail}
+                  </p>
+                </div>
                 <span
-                  className="grid size-9 place-items-center rounded-xl"
-                  style={metric.tone}
+                  className={`grid size-9 shrink-0 place-items-center rounded-md ${metric.tone}`}
                 >
                   <Icon className="size-4" strokeWidth={1.8} />
                 </span>
-              </CardHeader>
-              <CardContent>
-                <p className="text-[1.75rem] leading-none font-semibold tracking-tight">
-                  {metric.value}
-                </p>
-                <p className="mt-2 flex items-center gap-1 text-xs font-medium text-muted-foreground">
-                  <TrendingUp
-                    className="size-3"
-                    style={{ color: metric.tone.color }}
-                    strokeWidth={2.25}
-                  />
-                  {metric.detail}
-                </p>
               </CardContent>
             </Card>
           );

@@ -70,9 +70,12 @@ export function Footer({ categories }: { categories?: Category[] }) {
             <a
               href="/"
               aria-label="Lumina home"
-              className="block w-fit rounded-sm font-serif text-[26px] leading-none tracking-[0.18em] uppercase focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay"
+              className="block h-9 w-[155px] rounded-sm bg-center bg-no-repeat focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-clay"
+              style={{
+                backgroundImage: "url('/logo-text.png')",
+                backgroundSize: "155px 60px",
+              }}
             >
-              Lumina
             </a>
             <p className="max-w-xs text-[13px] leading-6 text-muted-foreground">
               Objects for considered living, made in small batches by workshops

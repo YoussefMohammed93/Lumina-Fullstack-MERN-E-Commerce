@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { apiRequest } from "@/features/auth/auth-client";
 import { useAuth } from "@/features/auth/useAuth";
 import { AdminSidebar } from "@/features/admin/components/AdminSidebar";
+import { BrandLoadingScreen } from "@/components/BrandLogo";
 import { AdminTopbar } from "@/features/admin/components/AdminTopbar";
 import { DashboardPage } from "@/features/admin/pages/DashboardPage";
 import { ResourcePage } from "@/features/admin/pages/ResourcePage";
@@ -12,6 +13,8 @@ import { CustomersPage } from "@/features/admin/pages/CustomersPage";
 import { CategoriesPage } from "@/features/admin/pages/CategoriesPage";
 import { OrdersPage } from "@/features/admin/pages/OrdersPage";
 import { NotificationsPage } from "@/features/admin/pages/NotificationsPage";
+import { JournalAdminPage } from "@/features/admin/pages/JournalAdminPage";
+import { NewsletterPage } from "@/features/admin/pages/NewsletterPage";
 import { AdminNotificationsProvider } from "@/features/admin/notifications/admin-notifications-context";
 import type { Product } from "@/types/product";
 import type { AdminDashboardOverview } from "@/features/admin/admin-dashboard-service";
@@ -51,7 +54,7 @@ export function AdminDashboard({ products }: { products: Product[] }) {
     };
   }, [overviewRetry, user?.role]);
 
-  if (loading) return null;
+  if (loading) return <BrandLoadingScreen label="Preparing your workspace" />;
   if (!user)
     return (
       <main className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
@@ -101,6 +104,10 @@ export function AdminDashboard({ products }: { products: Product[] }) {
           <main className="mx-auto px-4 pt-25 pb-7 md:px-7 md:pt-27 md:pb-9">
             {page === "products" ? (
               <ProductsPage />
+            ) : page === "journal" ? (
+              <JournalAdminPage />
+            ) : page === "newsletter" ? (
+              <NewsletterPage />
             ) : page === "orders" ? (
               <OrdersPage products={products} />
             ) : page === "notifications" ? (

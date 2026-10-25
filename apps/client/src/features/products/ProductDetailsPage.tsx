@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import { BrandLogo } from "@/components/BrandLogo";
 import { Nav } from "@/features/landing/Nav";
 import { Footer } from "@/features/landing/Footer";
 import { CartDrawer } from "@/features/landing/CartDrawer";
@@ -44,7 +45,7 @@ export function ProductDetailsSkeleton() {
   return (
     <div className="min-h-screen bg-background">
       <header className="mx-4 mt-3 flex h-16 max-w-6xl items-center rounded-full border border-border/50 px-5 sm:mx-6 lg:mx-auto">
-        <Skeleton className="h-5 w-28 rounded-full" />
+        <BrandLogo className="h-10 w-10 md:h-8 md:w-[132px]" />
         <div className="ml-auto flex gap-2">
           <Skeleton className="size-9 rounded-full" />
           <Skeleton className="size-9 rounded-full" />

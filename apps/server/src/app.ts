@@ -8,6 +8,8 @@ import checkoutRouter from "./routes/checkout.routes.js";
 import stripeWebhookRouter from "./routes/stripe-webhook.routes.js";
 import ordersRouter from "./routes/orders.routes.js";
 import notificationsRouter from "./routes/notifications.routes.js";
+import newsletterRouter from "./routes/newsletter.routes.js";
+import { adminJournalRouter, journalRouter } from "./routes/journal.routes.js";
 
 const app = express();
 
@@ -30,9 +32,12 @@ app.use(express.json());
 // ── Routes
 app.use("/api/v1", productRouter);
 app.use("/api/v1/auth", authRouter);
+app.use("/api/v1/journal", journalRouter);
+app.use("/api/v1/newsletter", newsletterRouter);
 app.use("/api/v1", commerceRouter);
 app.use("/api/v1/admin", adminRouter);
 app.use("/api/v1/admin/notifications", notificationsRouter);
+app.use("/api/v1/admin/journal", adminJournalRouter);
 app.use("/api/v1", checkoutRouter);
 app.use("/api/v1", ordersRouter);
 
