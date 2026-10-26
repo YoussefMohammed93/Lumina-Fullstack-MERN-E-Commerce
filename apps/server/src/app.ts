@@ -22,7 +22,7 @@ import {
 const app = express();
 const allowedOrigins = (process.env.CLIENT_ORIGIN ?? "http://localhost:3000")
   .split(",")
-  .map((origin) => origin.trim())
+  .map((origin) => origin.trim().replace(/\/+$/, ""))
   .filter(Boolean);
 
 // ── Middleware
