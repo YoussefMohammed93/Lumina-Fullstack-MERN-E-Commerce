@@ -54,6 +54,15 @@ app.use("/api/v1", checkoutRouter);
 app.use("/api/v1", ordersRouter);
 
 // ── Health check
+app.get("/", (_req, res) => {
+  res.status(200).json({
+    name: "Lumina API",
+    status: "ok",
+    health: "/health",
+    apiBase: "/api/v1",
+  });
+});
+
 app.get("/health", (_req, res) => {
   res.status(200).json({ status: "ok" });
 });

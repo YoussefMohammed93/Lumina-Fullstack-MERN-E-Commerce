@@ -6,6 +6,8 @@
  * reused across warm invocations.
  */
 
+/// <reference path="../src/types/express.d.ts" />
+
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -15,14 +17,20 @@ import app from "../src/app.js";
 
 import type { IncomingMessage, ServerResponse } from "node:http";
 
-let isConnected = false;
+let initialization: Promise<void> | undefined;
 
-async function init() {
-  if (!isConnected) {
-    await connectDB();
-    await ensureStarterJournalStories();
-    isConnected = true;
+function init(): Promise<void> {
+  if (!initialization) {
+    initialization = (async () => {
+      await connectDB();
+      await ensureStarterJournalStories();
+    })().catch((error: unknown) => {
+      initialization = undefined;
+      throw error;
+    });
   }
+
+  return initialization;
 }
 
 export default async function handler(
