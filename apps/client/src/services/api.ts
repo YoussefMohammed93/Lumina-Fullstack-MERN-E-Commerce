@@ -5,11 +5,12 @@ import type {
   Testimonial,
 } from "../types/product";
 import { testimonials } from "../data/products";
+import { API_BASE } from "../lib/api-base";
 
 type Envelope<T> = { success: boolean; data?: T; error?: { message?: string } };
 
 async function request<T>(path: string): Promise<T> {
-  const response = await fetch(`/api/v1${path}`);
+  const response = await fetch(`${API_BASE}/api/v1${path}`);
   const body = (await response.json().catch(() => ({}))) as Envelope<T>;
 
   if (!response.ok || !body.success)

@@ -9,6 +9,7 @@ import type { Product } from "@/types/product";
 import { authenticatedRequest } from "@/features/auth/auth-client";
 import { useAuth } from "@/features/auth/useAuth";
 import { CartContext, type CartContextValue } from "./cart-context";
+import { API_BASE } from "@/lib/api-base";
 
 interface StoredCart {
   lines: { productId: string; variantId: string; quantity: number }[];
@@ -32,10 +33,10 @@ export function CartProvider({
     }
     let cancelled = false;
     Promise.all([
-      fetch("/api/v1/cart", { credentials: "include" }).then((response) =>
+      fetch(`${API_BASE}/api/v1/cart`, { credentials: "include" }).then((response) =>
         response.json(),
       ) as Promise<{ data?: StoredCart["lines"] }>,
-      fetch("/api/v1/wishlist", { credentials: "include" }).then((response) =>
+      fetch(`${API_BASE}/api/v1/wishlist`, { credentials: "include" }).then((response) =>
         response.json(),
       ) as Promise<{ data?: string[] }>,
     ])

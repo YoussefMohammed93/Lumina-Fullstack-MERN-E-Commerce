@@ -4,11 +4,13 @@ type ApiEnvelope<T> = {
   error?: { message?: string };
 };
 
+import { API_BASE } from "@/lib/api-base";
+
 export async function apiRequest<T>(
   path: string,
   init: RequestInit = {},
 ): Promise<T> {
-  const response = await fetch(`/api/v1${path}`, {
+  const response = await fetch(`${API_BASE}/api/v1${path}`, {
     ...init,
     credentials: "include",
     headers: { "Content-Type": "application/json", ...(init.headers ?? {}) },
