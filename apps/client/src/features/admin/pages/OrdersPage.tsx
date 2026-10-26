@@ -476,6 +476,9 @@ export function OrdersPage({ products }: { products: Product[] }) {
   const [query, setQuery] = useState(
     () => new URLSearchParams(window.location.search).get("search") ?? "",
   );
+  const [searchOrderId] = useState(
+    () => new URLSearchParams(window.location.search).get("orderId") ?? "",
+  );
   const [filter, setFilter] = useState<StatusFilter>("All orders");
   const [page, setPage] = useState(1);
   const [sortNewestFirst, setSortNewestFirst] = useState(true);
@@ -498,8 +501,9 @@ export function OrdersPage({ products }: { products: Product[] }) {
       limit: String(PAGE_SIZE),
       sort: sortNewestFirst ? "newest" : "oldest",
     });
+    if (searchOrderId) params.set("orderId", searchOrderId);
     const search = query.trim();
-    if (search) params.set("search", search);
+    if (search && !searchOrderId) params.set("search", search);
     if (filter !== "All orders") params.set("status", API_STATUS[filter]);
 
     void apiRequest<OrdersApiResponse>(`/admin/orders?${params.toString()}`)
@@ -529,7 +533,15 @@ export function OrdersPage({ products }: { products: Product[] }) {
     return () => {
       cancelled = true;
     };
-  }, [filter, page, products, query, reloadVersion, sortNewestFirst]);
+  }, [
+    filter,
+    page,
+    products,
+    query,
+    reloadVersion,
+    searchOrderId,
+    sortNewestFirst,
+  ]);
 
   const currentPage = Math.min(page, pageCount);
   const firstVisibleOrder = total ? (currentPage - 1) * PAGE_SIZE + 1 : 0;

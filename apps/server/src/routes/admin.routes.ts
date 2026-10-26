@@ -337,6 +337,111 @@ router.post("/uploads/signature", requireCsrf, (_req, res) => {
   });
 });
 
+router.get("/search", async (req, res, next) => {
+  try {
+    const search = text(req.query.q);
+    if (search.length > 100)
+      return res.status(400).json({
+        success: false,
+        error: { message: "Search must be 100 characters or fewer." },
+      });
+    if (search.length < 2)
+      return res.json({
+        success: true,
+        data: { products: [], orders: [] },
+      });
+
+    const escapedSearch = escapeRegex(search);
+    const regex = { $regex: escapedSearch, $options: "i" };
+    const searchPattern = new RegExp(escapedSearch, "i");
+    const [matchingUsers, matchingCategories] = await Promise.all([
+      User.find({
+        $or: [{ name: regex }, { username: regex }, { email: regex }],
+      })
+        .select("_id")
+        .lean(),
+      Category.find({ $or: [{ name: regex }, { slug: regex }] })
+        .select("_id")
+        .lean(),
+    ]);
+
+    const orderSearch: Record<string, unknown>[] = [
+      { orderNumber: regex },
+      { "shippingAddress.name": regex },
+      { "shippingAddress.phone": regex },
+      ...(isValidObjectId(search) ? [{ _id: search }] : []),
+      ...(matchingUsers.length
+        ? [{ userId: { $in: matchingUsers.map((user) => user._id) } }]
+        : []),
+    ];
+    const productSearch: Record<string, unknown>[] = [
+      { name: regex },
+      { slug: regex },
+      { brand: regex },
+      { "variants.sku": regex },
+      { "variants.attributes.Color": regex },
+      { "variants.attributes.Size": regex },
+      ...(matchingCategories.length
+        ? [{ categoryId: { $in: matchingCategories.map((item) => item._id) } }]
+        : []),
+    ];
+    const [products, orders] = await Promise.all([
+      Product.find({ trashedAt: null, $or: productSearch })
+        .select("name slug status variants.sku images.url images.alt")
+        .sort({ updatedAt: -1 })
+        .limit(5)
+        .lean(),
+      Order.find({ $or: orderSearch })
+        .sort({ createdAt: -1, _id: -1 })
+        .limit(5)
+        .lean(),
+    ]);
+    const orderUsers = await User.find({
+      _id: { $in: orders.map((order) => order.userId) },
+    })
+      .select("name username email")
+      .lean();
+    const usersById = new Map(
+      orderUsers.map((user) => [String(user._id), user]),
+    );
+
+    res.json({
+      success: true,
+      data: {
+        products: products.map((product) => ({
+          id: String(product._id),
+          name: product.name,
+          slug: product.slug,
+          status: product.status,
+          image: product.images[0]?.url ?? "",
+          imageAlt: product.images[0]?.alt ?? product.name,
+          sku:
+            product.variants.find((variant) =>
+              searchPattern.test(variant.sku),
+            )?.sku ?? product.variants[0]?.sku ?? "",
+        })),
+        orders: orders.map((order) => {
+          const user = usersById.get(String(order.userId));
+          const id = String(order._id);
+          return {
+            id,
+            orderNumber: order.orderNumber ?? orderNumberForId(id),
+            customer:
+              order.shippingAddress?.name ??
+              user?.name ??
+              user?.username ??
+              "Customer",
+            email: user?.email ?? "",
+            status: normalizedFulfillmentStatus(order.fulfillmentStatus),
+          };
+        }),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get("/products", async (_req, res, next) => {
   try {
     const products = await Product.find({ trashedAt: null })
@@ -810,8 +915,14 @@ router.get("/orders", async (req, res, next) => {
       ORDER_PAGE_SIZE_MAX,
     );
     const search = text(req.query.search);
+    const orderId = text(req.query.orderId);
     const status = text(req.query.status);
     const sort = text(req.query.sort);
+    if (orderId && !isValidObjectId(orderId))
+      return res.status(400).json({
+        success: false,
+        error: { message: "Choose a valid order." },
+      });
     if (status && status !== "all" && !isOrderStatus(status))
       return res.status(400).json({
         success: false,
@@ -819,12 +930,13 @@ router.get("/orders", async (req, res, next) => {
       });
 
     const filter: Record<string, unknown> = {};
+    if (orderId) filter._id = orderId;
     if (status === "placed")
       filter.fulfillmentStatus = { $in: ["placed", "pending"] };
     else if (status && status !== "all") filter.fulfillmentStatus = status;
     const orderSort = sort === "oldest" ? { createdAt: 1 as const, _id: 1 as const } : { createdAt: -1 as const, _id: -1 as const };
 
-    if (search) {
+    if (search && !orderId) {
       const escapedSearch = escapeRegex(search);
       const matchingUsers = await User.find({
         $or: [
@@ -839,6 +951,8 @@ router.get("/orders", async (req, res, next) => {
       const orderSearch = {
         $or: [
           { orderNumber: { $regex: escapedSearch, $options: "i" } },
+          { "shippingAddress.name": { $regex: escapedSearch, $options: "i" } },
+          { "shippingAddress.phone": { $regex: escapedSearch, $options: "i" } },
           ...(isValidObjectId(search)
             ? [{ _id: search }]
             : []),

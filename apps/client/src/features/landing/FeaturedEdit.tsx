@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Category, Product } from "@/types/product";
 import { ProductCard } from "./ProductCard";
+import { ArrowButton } from "@/components/ArrowButton";
 import { Reveal } from "@/components/motion/Reveal";
 import { SectionHeading } from "@/components/SectionHeading";
 import { cn } from "@/lib/utils";
@@ -85,6 +86,10 @@ export function FeaturedEdit({
               <ProductCard product={product} />
             </Reveal>
           ))}
+        </div>
+
+        <div className="flex justify-center">
+          <ArrowButton href="/shop">Discover all products</ArrowButton>
         </div>
       </div>
     </section>

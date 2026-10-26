@@ -5,7 +5,6 @@ import { ArrowButton } from "@/components/ArrowButton";
 import { Reveal } from "@/components/motion/Reveal";
 
 export function Hero({
-  featured,
   onImagesSettled,
 }: {
   featured: Product;
@@ -83,7 +82,7 @@ export function Hero({
         {/* Asymmetric image composition */}
         <div className="relative">
           <Reveal delay={120}>
-            <div className="rounded-[2.25rem] bg-foreground/[0.05] p-2 ring-1 ring-foreground/8">
+            <div className="rounded-[2.25rem] bg-foreground/[0.05] p-1.5 ring-1 ring-foreground/8">
               <div className="relative aspect-[4/5] md:aspect-square overflow-hidden rounded-[calc(2.25rem-0.5rem)] bg-muted">
                 <SafeImage
                   src="/hero.webp"
@@ -94,29 +93,6 @@ export function Hero({
                 />
               </div>
             </div>
-          </Reveal>
-
-          {/* Overlapping detail card */}
-          <Reveal
-            delay={260}
-            className="absolute -bottom-8 -left-4 w-36 sm:-left-8 sm:w-44"
-          >
-            <figure className="-rotate-2 rounded-[1.4rem] bg-card p-1.5 shadow-[0_28px_50px_-30px_rgba(26,24,21,0.45)] ring-1 ring-foreground/8">
-              <div className="aspect-square overflow-hidden rounded-[1rem]">
-                <SafeImage
-                  src={featured.images[1] ?? featured.images[0]}
-                  alt={`${featured.name} detail`}
-                  eager
-                  onSettled={onImagesSettled}
-                />
-              </div>
-              <figcaption className="flex items-center justify-between px-2.5 py-2">
-                <span className="eyebrow text-muted-foreground">Detail</span>
-                <span className="eyebrow text-clay">
-                  <ArrowUpRight className="size-3" strokeWidth={1.5} />  
-                </span>
-              </figcaption>
-            </figure>
           </Reveal>
         </div>
       </div>

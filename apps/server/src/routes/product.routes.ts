@@ -18,6 +18,11 @@ export function presentProduct(product: any) {
   }));
   const active = variants.filter((variant: any) => variant.isActive);
   const prices = active.map((variant: any) => variant.price);
+  const lowestPriceVariant = active.reduce(
+    (lowest: any, variant: any) =>
+      !lowest || variant.price < lowest.price ? variant : lowest,
+    undefined,
+  );
   return {
     id: id(item._id),
     name: item.name,
@@ -38,6 +43,7 @@ export function presentProduct(product: any) {
     reviewCount: item.reviewCount,
     price: prices.length ? Math.min(...prices) : 0,
     priceMax: prices.length ? Math.max(...prices) : 0,
+    compareAtPrice: lowestPriceVariant?.compareAtPrice,
     stock: active.reduce((sum: number, variant: any) => sum + variant.stock, 0),
     variants,
   };

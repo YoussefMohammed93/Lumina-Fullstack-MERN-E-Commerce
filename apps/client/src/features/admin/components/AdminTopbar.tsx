@@ -1,10 +1,11 @@
-import type { MouseEvent } from "react";
+import { useEffect, useState, type MouseEvent } from "react";
 import {
   AlertTriangle,
   Bell,
   CheckCheck,
   LogOut,
   Menu,
+  Package,
   PackageCheck,
   Search,
   Settings,
@@ -26,6 +27,27 @@ import type { AuthUser } from "@/features/auth/auth-context";
 import { cn } from "@/lib/utils";
 import { useAdminNotifications } from "@/features/admin/notifications/admin-notifications-context";
 import { notificationTimeLabel } from "@/features/admin/notifications/notification-utils";
+import { apiRequest } from "@/features/auth/auth-client";
+import { SafeImage } from "@/components/motion/SafeImage";
+
+interface AdminSearchResults {
+  products: {
+    id: string;
+    name: string;
+    slug: string;
+    status: string;
+    sku: string;
+    image: string;
+    imageAlt: string;
+  }[];
+  orders: {
+    id: string;
+    orderNumber: string;
+    customer: string;
+    email: string;
+    status: string;
+  }[];
+}
 
 export function AdminTopbar({
   user,
@@ -38,6 +60,12 @@ export function AdminTopbar({
   onMenuClick: () => void;
   onLogout: () => void;
 }) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] =
+    useState<AdminSearchResults | null>(null);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
   const initials = (user.name || user.username).slice(0, 2).toUpperCase();
   const displayName = user.name || user.username;
   const {
@@ -65,6 +93,46 @@ export function AdminTopbar({
       className: "bg-violet-100 text-violet-700",
     },
   } as const;
+  useEffect(() => {
+    const query = searchQuery.trim();
+    if (query.length < 2) return;
+
+    let cancelled = false;
+    const timeout = window.setTimeout(() => {
+      const params = new URLSearchParams({ q: query });
+      setSearchLoading(true);
+      setSearchError("");
+      void apiRequest<AdminSearchResults>(`/admin/search?${params}`)
+        .then((results) => {
+          if (!cancelled) setSearchResults(results);
+        })
+        .catch((error: unknown) => {
+          if (!cancelled) {
+            setSearchResults(null);
+            setSearchError(
+              error instanceof Error ? error.message : "Search failed.",
+            );
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setSearchLoading(false);
+        });
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeout);
+    };
+  }, [searchQuery]);
+
+  const orderSearchHref = `/admin/orders?search=${encodeURIComponent(searchQuery.trim())}`;
+  const productSearchHref = `/admin/products?search=${encodeURIComponent(searchQuery.trim())}`;
+  const firstResultHref = searchResults?.orders.length
+    ? `/admin/orders?orderId=${encodeURIComponent(searchResults.orders[0].id)}`
+    : searchResults?.products[0]
+      ? `/admin/products?productId=${encodeURIComponent(searchResults.products[0].id)}`
+      : "/admin/products";
+
   async function openNotification(
     event: MouseEvent<HTMLAnchorElement>,
     notification: (typeof notifications)[number],
@@ -93,12 +161,154 @@ export function AdminTopbar({
       >
         <Menu />
       </Button>
-      <div className="relative min-w-0 flex-1 sm:max-w-sm">
+      <div
+        className="relative min-w-0 flex-1 sm:max-w-sm"
+        onBlur={(event) => {
+          if (
+            !(event.relatedTarget instanceof Node) ||
+            !event.currentTarget.contains(event.relatedTarget)
+          )
+            setSearchOpen(false);
+        }}
+      >
         <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           className="h-9 w-full rounded-xl border-transparent bg-muted pl-9 text-sm shadow-none placeholder:text-xs focus-visible:bg-card sm:placeholder:text-sm"
           placeholder="Search orders, products…"
+          value={searchQuery}
+          aria-label="Search orders and products"
+          onFocus={() => setSearchOpen(true)}
+          onChange={(event) => {
+            const value = event.target.value;
+            setSearchQuery(value);
+            setSearchResults(null);
+            setSearchError("");
+            setSearchLoading(value.trim().length >= 2);
+            setSearchOpen(true);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              setSearchOpen(false);
+              return;
+            }
+            if (event.key === "Enter" && searchQuery.trim().length >= 2) {
+              event.preventDefault();
+              window.location.assign(firstResultHref);
+            }
+          }}
         />
+        {searchOpen && searchQuery.trim().length >= 2 && (
+          <div
+            id="admin-search-results"
+            role="region"
+            aria-label="Search results"
+            className="absolute top-full left-0 z-30 mt-2 max-h-[min(70vh,28rem)] w-[min(28rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-border bg-card p-2 shadow-lg"
+          >
+            {searchLoading ? (
+              <p className="px-3 py-4 text-sm text-muted-foreground">
+                Searching…
+              </p>
+            ) : searchError ? (
+              <p role="alert" className="px-3 py-4 text-sm text-destructive">
+                {searchError}
+              </p>
+            ) : searchResults ? (
+              <>
+                {searchResults.orders.length > 0 && (
+                  <section aria-label="Orders">
+                    <p className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Orders
+                    </p>
+                    {searchResults.orders.map((order) => (
+                      <a
+                        key={order.id}
+                        href={`/admin/orders?orderId=${encodeURIComponent(order.id)}`}
+                        onClick={() => setSearchOpen(false)}
+                        className="flex items-start gap-3 rounded-lg px-3 py-2.5 text-sm outline-none hover:bg-muted focus-visible:bg-muted"
+                      >
+                        <ShoppingBag className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                        <span className="min-w-0 flex-1">
+                          <span className="block font-medium">
+                            {order.orderNumber}
+                          </span>
+                          <span className="block truncate text-xs text-muted-foreground">
+                            {order.customer}
+                            {order.email ? ` · ${order.email}` : ""}
+                            {` · ${order.status.replaceAll("_", " ")}`}
+                          </span>
+                        </span>
+                      </a>
+                    ))}
+                    <a
+                      href={orderSearchHref}
+                      onClick={() => setSearchOpen(false)}
+                      className="block rounded-lg px-3 py-2 text-xs font-semibold text-clay hover:bg-muted focus-visible:bg-muted"
+                    >
+                      View matching orders
+                    </a>
+                  </section>
+                )}
+                {searchResults.products.length > 0 && (
+                  <section
+                    aria-label="Products"
+                    className={searchResults.orders.length ? "mt-2 border-t border-border pt-1" : ""}
+                  >
+                    <p className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Products
+                    </p>
+                    {searchResults.products.map((product) => (
+                      <a
+                        key={product.id}
+                        href={`/admin/products?productId=${encodeURIComponent(product.id)}`}
+                        onClick={() => setSearchOpen(false)}
+                        className="flex items-start gap-3 rounded-lg px-3 py-2.5 text-sm outline-none hover:bg-muted focus-visible:bg-muted"
+                      >
+                        <span className="size-10 shrink-0 overflow-hidden rounded-md bg-muted">
+                          {product.image ? (
+                            <SafeImage
+                              src={product.image}
+                              alt={product.imageAlt}
+                              className="size-full object-cover"
+                            />
+                          ) : (
+                            <span className="flex size-full items-center justify-center text-muted-foreground">
+                              <Package className="size-4" />
+                            </span>
+                          )}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate font-medium">
+                            {product.name}
+                          </span>
+                          <span className="block truncate text-xs text-muted-foreground">
+                            {product.sku} · {product.status}
+                          </span>
+                        </span>
+                      </a>
+                    ))}
+                    <a
+                      href={productSearchHref}
+                      onClick={() => setSearchOpen(false)}
+                      className="block rounded-lg px-3 py-2 text-xs font-semibold text-clay hover:bg-muted focus-visible:bg-muted"
+                    >
+                      View matching products
+                    </a>
+                  </section>
+                )}
+                {!searchResults.orders.length &&
+                  !searchResults.products.length && (
+                    <p className="px-3 py-4 text-sm text-muted-foreground">
+                      No orders or products found.
+                    </p>
+                  )}
+              </>
+            ) : (
+              <p className="px-3 py-4 text-sm text-muted-foreground">
+                Searching…
+              </p>
+            )}
+          </div>
+        )}
       </div>
       <div className="ml-auto flex items-center gap-2">
         <DropdownMenu>

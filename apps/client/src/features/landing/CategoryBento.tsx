@@ -51,7 +51,7 @@ export function CategoryBento({ categories }: { categories: Category[] }) {
           copy="Begin where you spend the most time. Each collection is edited the same way — a few pieces, chosen to sit beside one another without effort."
           action={
             <a
-              href="#featured"
+              href="/shop"
               className="group inline-flex items-center gap-2 text-[13px] text-foreground/70 transition-colors hover:text-foreground"
             >
               View all pieces

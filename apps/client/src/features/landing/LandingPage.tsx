@@ -29,6 +29,7 @@ export function LandingPage({
   const [fontsReady, setFontsReady] = useState(false);
   const [announcementReady, setAnnouncementReady] = useState(false);
   const [footerSettingsReady, setFooterSettingsReady] = useState(false);
+  const [preparationTimedOut, setPreparationTimedOut] = useState(false);
   const onHeroImageSettled = useCallback(() => {
     setHeroImagesSettled((count) => Math.min(count + 1, 2));
   }, []);
@@ -44,6 +45,11 @@ export function LandingPage({
 
   useEffect(() => {
     void document.fonts.ready.then(() => setFontsReady(true));
+  }, []);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setPreparationTimedOut(true), 5000);
+    return () => window.clearTimeout(timeout);
   }, []);
 
   const featured = products[0];
@@ -67,7 +73,7 @@ export function LandingPage({
           </h1>
           <p className="mt-4 max-w-md text-sm leading-6 text-muted-foreground">
             No active products are available yet. An administrator can add a
-            product from the catalog dashboard or seed the initial collection.
+            product from the catalog dashboard.
           </p>
           <a href="/admin/products" className="mt-7 rounded-full bg-foreground px-5 py-3 text-sm text-background">
             Open product management
@@ -108,7 +114,9 @@ export function LandingPage({
         <FeaturedEdit products={products} categories={categories} />
         <EditorialFeature />
         <BestSellers products={bestSellers} />
-        <Testimonials testimonials={testimonials} />
+        {testimonials.length > 0 && (
+          <Testimonials testimonials={testimonials} />
+        )}
         <Newsletter />
       </main>
 
@@ -127,10 +135,11 @@ export function LandingPage({
         onClose={() => setWishlistOpen(false)}
         products={products}
       />
-      {(!fontsReady ||
-        heroImagesSettled < 2 ||
-        !announcementReady ||
-        !footerSettingsReady) && (
+      {!preparationTimedOut &&
+        (!fontsReady ||
+          heroImagesSettled < 2 ||
+          !announcementReady ||
+          !footerSettingsReady) && (
         <BrandLoadingScreen label="Preparing the collection" overlay />
       )}
     </div>

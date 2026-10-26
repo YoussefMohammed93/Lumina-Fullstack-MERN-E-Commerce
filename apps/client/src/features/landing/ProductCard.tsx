@@ -110,7 +110,7 @@ export function ProductCard({
             <span className="tabular text-[13px] font-medium">
               {formatPrice(product.price)}
             </span>
-            {product.compareAtPrice && (
+            {product.compareAtPrice && product.compareAtPrice > product.price && (
               <span className="tabular text-[12px] text-muted-foreground line-through">
                 {formatPrice(product.compareAtPrice)}
               </span>

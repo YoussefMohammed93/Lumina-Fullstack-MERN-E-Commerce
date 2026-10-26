@@ -45,7 +45,7 @@ export async function fetchCategories(): Promise<Category[]> {
 }
 
 export async function fetchTestimonials(): Promise<Testimonial[]> {
-  return testimonials;
+  return [...testimonials];
 }
 
 export function formatPrice(value: number, currency = "EGP"): string {

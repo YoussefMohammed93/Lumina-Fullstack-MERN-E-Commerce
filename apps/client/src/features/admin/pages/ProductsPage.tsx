@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   Archive,
   ArchiveRestore,
   ArrowDownUp,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   CircleAlert,
   ImagePlus,
   LayoutGrid,
@@ -102,6 +104,7 @@ type AdminProduct = Omit<Product, "images" | "variants"> & {
 type ProductFilter = "all" | "active" | "draft" | "archived";
 type ProductSort = "newest" | "name" | "price-low" | "price-high" | "stock";
 type ProductView = "list" | "grid";
+const PRODUCTS_PER_PAGE = 10;
 
 const productFormSchema = z
   .object({
@@ -255,6 +258,9 @@ export function ProductsPage() {
   const [query, setQuery] = useState(
     () => new URLSearchParams(window.location.search).get("search") ?? "",
   );
+  const [selectedProductId, setSelectedProductId] = useState(
+    () => new URLSearchParams(window.location.search).get("productId") ?? "",
+  );
   const [filter, setFilter] = useState<ProductFilter>("all");
   const [sort, setSort] = useState<ProductSort>("newest");
   const [view, setView] = useState<ProductView>("list");
@@ -268,6 +274,8 @@ export function ProductsPage() {
   const [productToTrash, setProductToTrash] = useState<AdminProduct | null>(
     null,
   );
+  const [page, setPage] = useState(1);
+  const productsListRef = useRef<HTMLDivElement>(null);
   const load = async () => {
     setError("");
     try {
@@ -344,17 +352,21 @@ export function ProductsPage() {
     }),
     [products],
   );
-  const visible = useMemo(
+  const filteredProducts = useMemo(
     () => {
       const term = query.trim().toLowerCase();
       return products
+        .filter(
+          (product) =>
+            !selectedProductId || product.id === selectedProductId,
+        )
         .filter((product) => filter === "all" || productStatus(product) === filter)
         .filter((product) => {
           if (!term) return true;
           const variantSearch = product.variants
             .map((item) => `${item.sku} ${Object.values(item.attributes).join(" ")}`)
             .join(" ");
-          return `${product.name} ${product.category} ${product.slug} ${variantSearch}`
+          return `${product.name} ${product.brand ?? ""} ${product.category} ${product.slug} ${variantSearch}`
             .toLowerCase()
             .includes(term);
         })
@@ -373,8 +385,40 @@ export function ProductsPage() {
           }
         });
     },
-    [products, query, filter, sort],
+    [products, query, filter, sort, selectedProductId],
   );
+  const pageCount = Math.max(
+    1,
+    Math.ceil(filteredProducts.length / PRODUCTS_PER_PAGE),
+  );
+  const currentPage = Math.min(page, pageCount);
+  const firstVisibleProduct = filteredProducts.length
+    ? (currentPage - 1) * PRODUCTS_PER_PAGE + 1
+    : 0;
+  const lastVisibleProduct = Math.min(
+    currentPage * PRODUCTS_PER_PAGE,
+    filteredProducts.length,
+  );
+  const pageWindowStart = Math.max(
+    1,
+    Math.min(currentPage - 2, pageCount - 4),
+  );
+  const pageNumbers = Array.from(
+    { length: Math.min(pageCount, 5) },
+    (_, index) => pageWindowStart + index,
+  );
+  const visible = filteredProducts.slice(
+    (currentPage - 1) * PRODUCTS_PER_PAGE,
+    currentPage * PRODUCTS_PER_PAGE,
+  );
+
+  const changePage = (nextPage: number) => {
+    setPage(Math.max(1, Math.min(pageCount, nextPage)));
+    productsListRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  };
   if (loading) return <ProductsPageSkeleton view={view} />;
   const edit = (product?: AdminProduct) => {
     setError("");
@@ -564,12 +608,18 @@ export function ProductsPage() {
                 placeholder="Search by product, SKU, color, or size"
                 aria-label="Search products"
                 value={query}
-                onChange={(event) => setQuery(event.target.value)}
+                onChange={(event) => {
+                  setQuery(event.target.value);
+                  setPage(1);
+                }}
               />
               {query && (
                 <button
                   type="button"
-                  onClick={() => setQuery("")}
+                  onClick={() => {
+                    setQuery("");
+                    setPage(1);
+                  }}
                   className="absolute top-1/2 right-2 -translate-y-1/2 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
                   aria-label="Clear search"
                 >
@@ -581,7 +631,10 @@ export function ProductsPage() {
               <ArrowDownUp className="size-4 shrink-0 text-muted-foreground" />
               <Select
                 value={sort}
-                onValueChange={(value) => setSort(value as ProductSort)}
+                onValueChange={(value) => {
+                  setSort(value as ProductSort);
+                  setPage(1);
+                }}
               >
                 <SelectTrigger
                   className="h-9 min-w-0 rounded-md bg-background px-3 sm:w-48"
@@ -679,7 +732,10 @@ export function ProductsPage() {
             </p>
             <Select
               value={filter}
-              onValueChange={(value) => setFilter(value as ProductFilter)}
+              onValueChange={(value) => {
+                setFilter(value as ProductFilter);
+                setPage(1);
+              }}
             >
               <SelectTrigger
                 className="h-9 w-full rounded-md bg-background px-3 sm:w-52"
@@ -706,13 +762,16 @@ export function ProductsPage() {
         </CardContent>
       </Card>
 
-      <Card className="gap-0 overflow-hidden rounded-md border-0 py-0 shadow-none ring-1 ring-foreground/8">
+      <Card
+        ref={productsListRef}
+        className="scroll-mt-24 gap-0 overflow-hidden rounded-md border-0 py-0 shadow-none ring-1 ring-foreground/8"
+      >
         <CardContent className="p-0">
           <div className="flex items-center justify-between gap-3 border-b px-4 py-3 sm:px-5">
             <p className="text-sm font-medium">
               {loading
                 ? "Loading products…"
-                : `${visible.length} ${visible.length === 1 ? "product" : "products"}`}
+                : `Showing ${firstVisibleProduct}–${lastVisibleProduct} of ${filteredProducts.length} ${filteredProducts.length === 1 ? "product" : "products"}`}
             </p>
             <Button
               type="button"
@@ -778,7 +837,18 @@ export function ProductsPage() {
                     variant="outline"
                     onClick={() => {
                       setQuery("");
+                      setSelectedProductId("");
                       setFilter("all");
+                      setPage(1);
+                      const params = new URLSearchParams(window.location.search);
+                      params.delete("search");
+                      params.delete("productId");
+                      const search = params.toString();
+                      window.history.replaceState(
+                        null,
+                        "",
+                        `${window.location.pathname}${search ? `?${search}` : ""}`,
+                      );
                     }}
                   >
                     Clear filters
@@ -789,6 +859,56 @@ export function ProductsPage() {
           </div>
         </CardContent>
       </Card>
+      {filteredProducts.length > PRODUCTS_PER_PAGE && (
+        <nav
+          aria-label="Product pages"
+          className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-md border bg-card px-4 py-3 sm:px-5"
+        >
+          <p className="text-xs text-muted-foreground">
+            Page {currentPage} of {pageCount}
+          </p>
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1 rounded-md px-2.5"
+              disabled={currentPage === 1}
+              onClick={() => changePage(currentPage - 1)}
+              aria-label="Previous page"
+            >
+              <ChevronLeft className="size-4" />
+              <span className="hidden sm:inline">Previous</span>
+            </Button>
+            {pageNumbers.map((pageNumber) => (
+              <Button
+                key={pageNumber}
+                type="button"
+                variant={pageNumber === currentPage ? "default" : "ghost"}
+                size="sm"
+                className="size-8 rounded-md p-0"
+                aria-label={`Page ${pageNumber}`}
+                aria-current={pageNumber === currentPage ? "page" : undefined}
+                onClick={() => changePage(pageNumber)}
+              >
+                {pageNumber}
+              </Button>
+            ))}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1 rounded-md px-2.5"
+              disabled={currentPage === pageCount}
+              onClick={() => changePage(currentPage + 1)}
+              aria-label="Next page"
+            >
+              <span className="hidden sm:inline">Next</span>
+              <ChevronRight className="size-4" />
+            </Button>
+          </div>
+        </nav>
+      )}
       {draft && (
         <ProductDialog
           draft={draft}

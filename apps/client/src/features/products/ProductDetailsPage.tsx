@@ -316,6 +316,9 @@ function ProductInfo({ product }: { product: Product }) {
     (variant) => variant.id === variantId,
   );
   const effectivePrice = selectedVariant?.price ?? product.price;
+  const effectiveCompareAtPrice =
+    selectedVariant?.compareAtPrice ??
+    (selectedVariant ? undefined : product.compareAtPrice);
   const effectiveStock = selectedVariant?.stock ?? product.stock;
   const wished = isWishlisted(product.id);
 
@@ -378,9 +381,9 @@ function ProductInfo({ product }: { product: Product }) {
         <span className="tabular text-xl font-medium">
           {formatPrice(effectivePrice)}
         </span>
-        {product.compareAtPrice && (
+        {effectiveCompareAtPrice && effectiveCompareAtPrice > effectivePrice && (
           <span className="tabular text-sm text-muted-foreground line-through">
-            {formatPrice(product.compareAtPrice)}
+            {formatPrice(effectiveCompareAtPrice)}
           </span>
         )}
       </div>
@@ -418,6 +421,11 @@ function ProductInfo({ product }: { product: Product }) {
                 >
                   {Object.values(variant.attributes).join(" / ") || variant.sku} —{" "}
                   {formatPrice(variant.price)}{" "}
+                  {variant.compareAtPrice && variant.compareAtPrice > variant.price && (
+                    <span className="ml-1 text-muted-foreground line-through">
+                      {formatPrice(variant.compareAtPrice)}
+                    </span>
+                  )}{" "}
                   {variant.stock ? `(${variant.stock} in stock)` : "(sold out)"}
                 </SelectItem>
               ))}
